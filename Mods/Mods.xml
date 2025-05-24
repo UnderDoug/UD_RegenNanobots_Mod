@@ -1,0 +1,8 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<mods>
+  <mod Part="Mod_UD_RegenNanobots" 
+       Tables="CommonMods" Rarity="R2" TinkerTier="8"
+       TinkerAllowed="true" CanAutoTinker="true" BonusAllowed="true"
+       Value="1.2" TinkerCategory="utility" 
+       TinkerDisplayName="fitted with regenerative nanobots" />
+</mods>

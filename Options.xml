@@ -1,0 +1,79 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<options>
+
+  <!-- 
+  Debug Options
+  -->
+  
+  <option
+        ID="Option_UD_RegenNanobots_Mod_DebugVerbosity"
+        DisplayText="{{G-g sequence|UD}} {{regenerative|Regenerative}} {{nanobots|Nanobots}} Mod: Verbosity of debug entries output to Player.log"
+        Category="Debug"
+        Type="Slider" 
+        Default="0"
+        Min="0"
+        Max="4"
+        Increment="1" >
+		<helptext>
+      {{g|0}}: Only infrequnet entries will be sent to Player.log, and only for reporting on normal function.
+      {{W|1}}: Debug entries will be sent to Player.log when certain functions are perfomed within this mod.
+      {{o|2}}: More frequent Player.log entries for a wider array of functions, often tracing broad program flow.
+      {{r|3}}: Even more Player.log entries including current internal values as they're passed around.
+      {{R|4}}: {{R|Not Recommended}} | Maximum number of entries to Player.log including tracing common or frequent loops.
+
+      The value default is {{g|0}}.
+    </helptext>
+	</option>
+	
+  <option
+        ID="Option_UD_RegenNanobots_Mod_DebugIncludeInMessage"
+		    Requires="Option_UD_RegenNanobots_Mod_DebugVerbosity!=0"
+        DisplayText="{{G-g sequence|UD}} {{regenerative|Regenerative}} {{nanobots|Nanobots}} Mod: Also show debug entries in the Message Queue"
+        Category="Debug"
+        Type="Checkbox"
+        Default="No" >
+    <helptext>
+      When enabled, debug entries will be sent to the Message Queue any time (with few exceptions) they would be sent to Player.log.
+      At higher levels of verbosity, this can be {{r|very}} "loud" and spammy.
+
+      The default is {{w|Disabled}}.
+    </helptext>
+  </option>
+	
+  <option
+        ID="Option_UD_RegenNanobots_Mod_DebugDuctapeModDescriptions"
+        DisplayText="{{G-g sequence|UD}} {{regenerative|Regenerative}} {{nanobots|Nanobots}} Mod: Show Regenerative Nanobots Mod internal debug information in relevant ShortDescriptions displayed in the [{{W|l}}]ook UI."
+        Category="Debug"
+        Type="Checkbox"
+        Default="No" >
+    <helptext>
+      When enabled, internal debug information relating to the &quot;fitted with regenerative nanobots&quot; modification will be displayed when [{{W|l}}]ooking at anything with the relevant parts.
+
+      {{M|Ductape}}:
+      {{W|Stats}}: Shows statistical information about the modification's performance.
+
+      The default is {{w|Disabled}}.
+    </helptext>
+  </option>
+  
+  <!-- 
+  Mod Options
+  -->
+  <!-- option
+        ID="Option_UD_RegenNanobots_Mod_AnyNumberOfMods"
+        DisplayText="Enable &quot;held together by utilitape&quot; to be applied before an item has the maximum mods applied."
+        Category="Mod: UD Regenerative Nanobots Mod"
+        Type="Checkbox"
+        Default="No" >
+    <helptext>
+      When enabled, &quot;held together by utilitape&quot; can be applied to otherwise eligable items irrespective of how many mods they already have applied.
+
+      The default behaviour is that the mod can only be applied to items that already have the maximum number of mods.
+
+      This is largely because the destructive nature of the mod combined with the fact that its only benefit comes when already maxed out on mods means it's typically a poor decision to apply it before wanting to apply a fourth mod.
+
+      The default is {{w|Disabled}}.
+    </helptext>
+  </option-->
+  
+</options>

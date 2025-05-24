@@ -1,0 +1,9 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>UD_RegenNanobots_Mod</AssemblyName>
+    <PackageId>UD_RegenNanobots_Mod</PackageId>
+    <Authors>UnderDoug</Authors>
+    <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
+  </PropertyGroup>
+  <Import Project="../Mods.csproj" />
+</Project>
