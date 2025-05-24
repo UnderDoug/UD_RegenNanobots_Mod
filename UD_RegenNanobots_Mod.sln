@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.14.36109.1
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UD_RegenNanobots Mod", "UD_RegenNanobots Mod.csproj", "{7F4A956D-C704-B54A-4251-7385530A7856}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UD_RegenNanobots_Mod", "UD_RegenNanobots_Mod.csproj", "{7F4A956D-C704-B54A-4251-7385530A7856}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
