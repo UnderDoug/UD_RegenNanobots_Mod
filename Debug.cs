@@ -382,7 +382,7 @@ namespace UD_RegenNanobots_Mod
         {
             foreach (GameObject @object in The.ActiveZone.GetObjects())
             {
-                UDDM_CellHighlighter highlighter = @object.RequirePart<UDDM_CellHighlighter>();
+                UDRN_CellHighlighter highlighter = @object.RequirePart<UDRN_CellHighlighter>();
                 @object.RemovePart(highlighter);
             }
         }
@@ -401,7 +401,7 @@ namespace UD_RegenNanobots_Mod
                     gameObject = Object;
             }
             gameObject = Cell.GetHighestRenderLayerObject();
-            UDDM_CellHighlighter highlighter = gameObject.RequirePart<UDDM_CellHighlighter>();
+            UDRN_CellHighlighter highlighter = gameObject.RequirePart<UDRN_CellHighlighter>();
             if (Priority >= highlighter.HighlightPriority)
             {
                 highlighter.HighlightPriority = Priority;
@@ -441,7 +441,7 @@ namespace UD_RegenNanobots_Mod
 namespace XRL.World.Parts
 {
     [Serializable]
-    public class UDDM_CellHighlighter : IScribedPart
+    public class UDRN_CellHighlighter : IScribedPart
     {
         public static readonly int ICON_COLOR_PRIORITY = 999;
 
@@ -453,7 +453,7 @@ namespace XRL.World.Parts
 
         public bool DoHighlight;
 
-        public UDDM_CellHighlighter()
+        public UDRN_CellHighlighter()
         {
             BackgroundColor = "k";
             DoHighlight = 
@@ -499,6 +499,6 @@ namespace XRL.World.Parts
             }
             base.Remove();
         }
-    } //!-- public class UD_CellHighlighter : IScribedPart[Serializable]
+    } //!-- public class UDRN_CellHighlighter : IScribedPart
 
 }

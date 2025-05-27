@@ -32,17 +32,6 @@ namespace XRL.World.Parts
 
         private GameObject Holder => ParentObject?.Holder;
 
-        private List<string> StringyRegenEventIDs => new()
-        {
-            "CommandFireMissile",
-            "BeforeThrown",
-        };
-        private Dictionary<Func<bool>, int> EquipperRegenEventIDs => new()
-        {
-            { delegate(){ return true; }, EnteredCellEvent.ID },
-            { delegate(){ return true; }, GetDefenderHitDiceEvent.ID },
-        };
-
         public static readonly string EQ_FRAME_COLORS = "rRgG";
 
         public static readonly string MOD_NAME = "Regenerative Nanobots";
@@ -348,7 +337,7 @@ namespace XRL.World.Parts
 
         public override bool WantTurnTick()
         {
-            bool wantTurnTick =
+            bool wantTurnTick = 
                 Regened
              || (!Regened && IsReady(ChargeUse: GetRegenAmount()))
              || ((isBusted || isRusted) && IsReady(ChargeUse: ObjectTier));
@@ -365,6 +354,16 @@ namespace XRL.World.Parts
             }
             base.TurnTick(TimeTick, Amount);
         }
+        private List<string> StringyRegenEventIDs => new()
+        {
+            "CommandFireMissile",
+            "BeforeThrown",
+        };
+        private Dictionary<Func<bool>, int> EquipperRegenEventIDs => new()
+        {
+            { delegate(){ return true; }, EnteredCellEvent.ID },
+            { delegate(){ return true; }, GetDefenderHitDiceEvent.ID },
+        };
         public override void Register(GameObject Object, IEventRegistrar Registrar)
         {
             foreach (string eventID in StringyRegenEventIDs)
