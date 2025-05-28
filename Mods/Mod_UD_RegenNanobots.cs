@@ -55,7 +55,6 @@ namespace XRL.World.Parts
         public bool isDamaged => ParentObject != null && ParentObject.isDamaged();
         public bool isBusted => ParentObject != null && ParentObject.IsBroken();
         public bool isRusted => ParentObject != null && ParentObject.IsRusted();
-        public int ObjectTier => ParentObject.GetTechTier();
 
         public Mod_UD_RegenNanobots()
             : base()
