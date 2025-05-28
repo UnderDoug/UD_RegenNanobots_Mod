@@ -137,6 +137,11 @@ namespace XRL.World.Parts
             return ApplyEquipmentFrameColors(ParentObject);
         }
 
+        public static int GetChargeUse()
+        {
+            return 0;
+        }
+
         public static int GetRegenAmount(Statistic Hitpoints)
         {
             if (Hitpoints == null) 
@@ -244,9 +249,9 @@ namespace XRL.World.Parts
             }
             return false;
         }
-        public bool TryRegenerate(out bool Jostled, MinEvent FromEvent = null, Event FromSEvent = null)
+        public bool TryRegenerate(out bool DidRegen, MinEvent FromEvent = null, Event FromSEvent = null)
         {
-            return TryRegenerate(out Jostled, out _, FromEvent, FromSEvent);
+            return TryRegenerate(out DidRegen, out _, FromEvent, FromSEvent);
         }
 
         public bool Restore(out string Condition, MinEvent FromEvent = null, Event FromSEvent = null)
@@ -337,27 +342,29 @@ namespace XRL.World.Parts
 
         public override bool WantTurnTick()
         {
-            bool wantTurnTick = 
-                Regened
-             || (!Regened && IsReady(ChargeUse: GetRegenAmount()))
-             || ((isBusted || isRusted) && IsReady(ChargeUse: ObjectTier));
-
             return base.WantTurnTick()
-                || wantTurnTick;
+                || !Regened;
         }
         public override void TurnTick(long TimeTick, int Amount)
         {
             if (TimeTick - StoredTimeTick > 3 || (Hitpoints.Value > 0 && !ParentObject.IsInGraveyard()))
             {
-                Regened = false;
-                StoredTimeTick = TimeTick;
+                // Need to add Charge-Use
+                if (TryRestore())
+                {
+                    StoredTimeTick = TimeTick;
+                }
+                if (TryRegenerate(out Regened))
+                {
+                    StoredTimeTick = TimeTick;
+                }
             }
             base.TurnTick(TimeTick, Amount);
         }
         private List<string> StringyRegenEventIDs => new()
         {
-            "CommandFireMissile",
-            "BeforeThrown",
+            // "CommandFireMissile",
+            // "BeforeThrown",
         };
         private Dictionary<Func<bool>, int> EquipperRegenEventIDs => new()
         {
@@ -366,9 +373,12 @@ namespace XRL.World.Parts
         };
         public override void Register(GameObject Object, IEventRegistrar Registrar)
         {
-            foreach (string eventID in StringyRegenEventIDs)
+            if (!StringyRegenEventIDs.IsNullOrEmpty())
             {
-                Registrar.Register(eventID);
+                foreach (string eventID in StringyRegenEventIDs)
+                {
+                    Registrar.Register(eventID);
+                }
             }
             base.Register(Object, Registrar);
         }
@@ -462,7 +472,7 @@ namespace XRL.World.Parts
         }
         public override bool FireEvent(Event E)
         {
-            if (StringyRegenEventIDs.Contains(E.ID))
+            if (!StringyRegenEventIDs.IsNullOrEmpty() && StringyRegenEventIDs.Contains(E.ID))
             {
                 
             }

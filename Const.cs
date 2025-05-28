@@ -8,9 +8,8 @@ namespace UD_RegenNanobots_Mod
 {
     public static class Const
     {
-        public const string MOD_ID = "Regenerative Nanobots Mod";
+        public const string MOD_ID = "ud_regenNanobots_mod";
 
-        public const string DEBUG_OBJECT_CREATION_ANALYSIS = "UD_Debug_DoObjectCreationAnalysis";
         public const string DEBUG_HIGHLIGHT_CELLS = "UD_Debug_HighlightCells";
 
         public const string NULL = "\"null\"";

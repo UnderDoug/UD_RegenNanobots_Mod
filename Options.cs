@@ -21,10 +21,9 @@ namespace UD_RegenNanobots_Mod
         {
             { nameof(DebugVerbosity), Label("DebugVerbosity") },
             { nameof(DebugIncludeInMessage), Label("DebugIncludeInMessage") },
-            { nameof(DebugRegenNanobotsModDescriptions), Label("DebugDuctapeModDescriptions") },
+            { nameof(DebugRegenNanobotsModDescriptions), Label("DebugRegenNanobotsModDescriptions") },
         };
 
-        // Per the wiki, code is taken 1:1
         private static string GetStringOption(string ID, string Default = "")
         {
             if (Directory.ContainsKey(ID))

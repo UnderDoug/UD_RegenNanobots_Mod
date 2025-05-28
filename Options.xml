@@ -41,7 +41,7 @@
   </option>
 	
   <option
-        ID="Option_UD_RegenNanobots_Mod_DebugDuctapeModDescriptions"
+        ID="Option_UD_RegenNanobots_Mod_DebugRegenNanobotsModDescriptions"
         DisplayText="{{G-g sequence|UD}} {{regenerative|Regenerative}} {{nanobots|Nanobots}} Mod: Show Regenerative Nanobots Mod internal debug information in relevant ShortDescriptions displayed in the [{{W|l}}]ook UI."
         Category="Debug"
         Type="Checkbox"
