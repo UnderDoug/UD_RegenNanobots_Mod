@@ -1,23 +1,20 @@
-﻿using HarmonyLib;
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 
 using XRL.UI;
-using XRL.World;
 using XRL.Rules;
 using XRL.Language;
-using XRL.World.Capabilities;
+using XRL.World;
+using XRL.World.Effects;
 using XRL.World.Tinkering;
+using XRL.World.Capabilities;
 
 using UD_RegenNanobots_Mod;
 using static UD_RegenNanobots_Mod.Const;
 using static UD_RegenNanobots_Mod.Utils;
-
 using Debug = UD_RegenNanobots_Mod.Debug;
 using Options = UD_RegenNanobots_Mod.Options;
-using XRL.World.Effects;
 
 namespace XRL.World.Parts
 {
@@ -30,19 +27,29 @@ namespace XRL.World.Parts
 
         private Statistic Hitpoints => ParentObject?.GetStat(nameof(Hitpoints));
 
+        public Examiner Examiner => ParentObject?.GetPart<Examiner>();
+
         private GameObject Equipper => ParentObject?.Equipped;
 
         private GameObject Holder => ParentObject?.Holder;
 
         public static readonly string EQ_FRAME_COLORS = "rRgG";
 
-        public static readonly string MOD_NAME = "Regenerative Nanobots";
+        public static readonly string REGENERATIVE = "regenerative";
 
-        public static readonly string MOD_NAME_COLORED = "{{regenerative|Regenerative}} {{nanobots|Nanobots}}";
+        public static readonly string NANOBOTS = "nanobots";
 
-        public DieRoll RegenDie = new("1d30");
+        public static readonly string MOD_NAME = $"{REGENERATIVE} {NANOBOTS}";
 
-        public DieRoll RestoreDie = new("1d120");
+        public static readonly string MOD_NAME_COLORED = "{{regenerative|" + REGENERATIVE + "}} {{nanobots|" + NANOBOTS + "}}";
+
+        public static DieRoll RegenDie = new($"1d30");
+
+        public static DieRoll RestoreDie = new($"1d120");
+
+        public int ObjectTechTier => ParentObject.GetTechTier();
+
+        public float RegenFactor = 0.01f;
 
         public int CumulativeRegen = 0;
 
@@ -83,6 +90,20 @@ namespace XRL.World.Parts
             IsTechScannable = true;
             NameForStatus = "RegenerativeNanobots";
         }
+        public override void TierConfigure()
+        {
+            int multiplier = 1;
+            if (ParentObject != null)
+            {
+                multiplier += ObjectTechTier;
+            }
+            if (Examiner != null)
+            {
+                multiplier += Examiner.Complexity;
+            }
+            ChargeUse = Tier * multiplier;
+            ChargeMinimum = ChargeUse;
+        }
         public override bool ModificationApplicable(GameObject Object)
         {
             Debug.Entry(4,
@@ -105,14 +126,83 @@ namespace XRL.World.Parts
             }
             return Object != null && Object.HasStat("Hitpoints");
         }
-        public bool CanRegen(string Context = "")
+
+        public static string GetDescription(int Tier)
         {
-            return CanRegen(ParentObject, Context);
+            return $"{MOD_NAME_COLORED}: while powered, this item will gradually regenerate HP and has a small chance to be restored from being rusted or broken. Higher tier items require more charge to function.";
+        }
+        public static string GetDescription(GameObject Item, int Tier)
+        {
+            Statistic hitpoints = Item.GetStat("Hitpoints");
+            if (hitpoints != null)
+            {
+                Mod_UD_RegenNanobots modRegenNanobots = new();
+                float regenFactor = modRegenNanobots.RegenFactor;
+                int regenAmount = GetRegenAmount(hitpoints, regenFactor, Max: true);
+
+                StringBuilder SB = Event.NewStringBuilder();
+                SB.Append(GetDynamicModName(Item, Tier)).Append(": ");
+                SB.Append("while powered, this item ");
+                SB.Append("has a ").Append(RegenDie.Min()).Append(" in ").Append(RegenDie.Max()).Append(" chance per turn to ");
+                SB.Append("regenerate ").Append(regenAmount).Append(" HP and ");
+                SB.Append("has a ").Append(RestoreDie.Min()).Append(" in ").Append(RestoreDie.Max()).Append(" chance per turn to ");
+                SB.Append("be restored from being rusted or broken. ");
+                SB.Append("Higher tier items require more charge to function.");
+
+                return Event.FinalizeString(SB);
+            }
+            return GetDescription(Tier);
+        }
+        public string GetInstanceDescription()
+        {
+            return GetDescription(ParentObject, Tier);
+        }
+        public static string GetDynamicModName(GameObject Item, int Tier, bool LowerCase = false)
+        {
+            int indent = Debug.LastIndent;
+
+            string regenerative = LowerCase ? Grammar.MakeLowerCase(REGENERATIVE) : Grammar.MakeTitleCase(REGENERATIVE);
+            string nanobots = LowerCase ? Grammar.MakeLowerCase(NANOBOTS) : Grammar.MakeTitleCase(NANOBOTS);
+            Statistic Hitpoints = Item.GetStat("Hitpoints");
+            int remainingHP = Hitpoints.Value;
+            int maxHP = Hitpoints.BaseValue;
+            float percentHP = (float)remainingHP / (float)maxHP;
+            int breakPoint = (int)Math.Floor(regenerative.Length * percentHP);
+            Debug.Entry(4, $"{remainingHP}/{maxHP} = {percentHP}; {nameof(breakPoint)}: {breakPoint}", Indent: indent + 1, Toggle: doDebug);
+            if (breakPoint < regenerative.Length - 1)
+            {
+                int brightPoint = Math.Max(0, breakPoint - 1);
+                int dullPoint = Math.Min(breakPoint + 1, regenerative.Length - 1);
+                int whitePoint = brightPoint;
+
+                Debug.Entry(4, $"{nameof(brightPoint)}: {brightPoint}", Indent: indent + 2, Toggle: doDebug);
+                Debug.Entry(4, $"{nameof(dullPoint)}: {dullPoint}", Indent: indent + 2, Toggle: doDebug);
+                Debug.Entry(4, $"{nameof(whitePoint)}: {whitePoint}", Indent: indent + 2, Toggle: doDebug);
+
+                string regenBright = brightPoint > 0 ? regenerative[..brightPoint].Color("regenerating") : "";
+                string regenDull = regenerative[dullPoint..].Color("K");
+                string regenWhite = regenerative.Substring(whitePoint, 1).Color("Y");
+
+                regenerative = regenBright + regenWhite + regenDull;
+                nanobots = nanobots.Color("greygoo");
+            }
+            else
+            {
+                regenerative = regenerative.Color("regenerative");
+                nanobots = nanobots.Color("nanobots");
+            }
+            Debug.LastIndent = indent;
+            return $"{regenerative} {nanobots}";
+        }
+        public string GetDynamicModName(bool LowerCase = false)
+        {
+            return GetDynamicModName(ParentObject, Tier, LowerCase);
         }
 
-        public static string GetDescription()
+        public override void Attach()
         {
-            return $"{MOD_NAME_COLORED}: while powered, this item will gradually regenerate HP and has a small chance to be restored from being rusted or broken.";
+            ApplyEquipmentFrameColors();
+            base.Attach();
         }
         public override void ApplyModification(GameObject Object)
         {
@@ -122,115 +212,99 @@ namespace XRL.World.Parts
                 $"{Object?.DebugName ?? NULL})",
                 Indent: Debug.LastIndent, Toggle: doDebug);
 
-            if (Object != null)
+            if (ChargeUse > 0)
             {
                 Object.RequirePart<EnergyCellSocket>();
-                IncreaseDifficultyAndComplexityIfComplex(2, 2);
+                IncreaseDifficultyAndComplexity(3, 2);
                 ApplyEquipmentFrameColors();
             }
-            base.ApplyModification();
         }
-
-        public static bool ApplyEquipmentFrameColors(GameObject Object)
+        public bool ApplyEquipmentFrameColors()
         {
             Debug.Entry(4,
                 $"{nameof(Mod_UD_RegenNanobots)}." +
                 $"{nameof(ApplyEquipmentFrameColors)}(" +
-                $"{Object?.DebugName ?? NULL})",
+                $"{ParentObject?.DebugName ?? NULL})",
                 Indent: Debug.LastIndent, Toggle: doDebug);
 
-            if (Object != null && !Object.HasTagOrProperty("EquipmentFrameColors"))
+            if (ParentObject != null && !ParentObject.HasTagOrProperty("EquipmentFrameColors"))
             {
-                Object.SetEquipmentFrameColors(EQ_FRAME_COLORS);
+                ParentObject.SetEquipmentFrameColors(EQ_FRAME_COLORS);
             }
-            return Object.GetPropertyOrTag("EquipmentFrameColors") == EQ_FRAME_COLORS;
-        }
-        public bool ApplyEquipmentFrameColors()
-        {
-            return ApplyEquipmentFrameColors(ParentObject);
+            return ParentObject.GetPropertyOrTag("EquipmentFrameColors") == EQ_FRAME_COLORS;
         }
 
-        public static int GetRegenChargeUse(Statistic Hitpoints, int Tier)
-        {
-            if (Hitpoints == null) return 99999999;
-            return GetRegenAmount(Hitpoints) * Tier;
-        }
         public int GetRegenChargeUse()
         {
-            return GetRegenChargeUse(Hitpoints, Tier);
+            if (Hitpoints == null) return 0;
+            int multiplier = 1;
+            if (ParentObject != null)
+            {
+                multiplier += ObjectTechTier;
+            }
+            if (Examiner != null)
+            {
+                multiplier += Examiner.Complexity;
+            }
+            return 10 * multiplier * GetRegenAmount(Max: true) * Tier * ObjectTechTier;
         }
 
-        public static int GetRestoreChargeUse(Statistic Hitpoints, int Tier)
-        {
-            if (Hitpoints == null) return 99999999;
-            return Hitpoints.BaseValue * Tier;
-        }
         public int GetRestoreChargeUse()
         {
-            return GetRestoreChargeUse(Hitpoints, Tier);
+            if (Hitpoints == null) return 0;
+            int multiplier = 1;
+            if (ParentObject != null)
+            {
+                multiplier += ObjectTechTier;
+            }
+            if (Examiner != null)
+            {
+                multiplier += Examiner.Complexity;
+            }
+            return 10 * multiplier * Hitpoints.BaseValue * Tier * ObjectTechTier;
         }
 
-        public static bool HaveChargeToRegen(GameObject Item, int LessAmount = 0)
+        public bool HaveChargeToRegen(int LessAmount = 0)
         {
-            if (Item != null && Item.HasStat(nameof(Hitpoints)))
+            if (ParentObject != null && Hitpoints != null && GetRegenChargeUse() > 0)
             {
-                Statistic hitpoints = Item.GetStat(nameof(Hitpoints));
-                int tier = Item.GetTier();
-                return GetRegenChargeUse(hitpoints, tier) < (Item.QueryCharge() - LessAmount);
+                return GetRegenChargeUse() < (ParentObject.QueryCharge() - LessAmount);
             }
             return false;
         }
-        public  bool HaveChargeToRegen(int LessAmount = 0)
+        public bool HaveChargeToRestore(int LessAmount = 0)
         {
-            return HaveChargeToRegen(ParentObject, LessAmount);
-        }
-
-        public static bool HaveChargeToRestore(GameObject Item, int LessAmount = 0)
-        {
-            if (Item != null && Item.HasStat(nameof(Hitpoints)))
+            if (ParentObject != null && Hitpoints != null && GetRestoreChargeUse() > 0)
             {
-                Statistic hitpoints = Item.GetStat(nameof(Hitpoints));
-                int tier = Item.GetTier();
-                return GetRestoreChargeUse(hitpoints, tier) < (Item.QueryCharge() - LessAmount);
+                return GetRestoreChargeUse() < (ParentObject.QueryCharge() - LessAmount);
             }
             return false;
         }
-        public  bool HaveChargeToRestore(int LessAmount = 0)
-        {
-            return HaveChargeToRestore(ParentObject, LessAmount);
-        }
 
-        public static int GetRegenAmount(Statistic Hitpoints)
+        public static int GetRegenAmount(Statistic Hitpoints, float RegenFactor, bool Max = false)
         {
             if (Hitpoints == null) 
                 return 0;
 
-            int high = (int)Math.Ceiling(Hitpoints.BaseValue * 0.01);
-            int low = (int)Math.Floor(Hitpoints.BaseValue * 0.01);
-
-            if (Hitpoints.BaseValue < 100)
-            {
-                return FiftyFifty() ? high : low;
-            }
-
-            return high;
+            int amount = Math.Max(1, (int)Math.Ceiling(Hitpoints.BaseValue * RegenFactor));
+            amount = Max ? amount : Math.Min(Hitpoints.Penalty, amount);
+            return amount;
         }
-        public int GetRegenAmount()
+        public int GetRegenAmount(bool Max = false)
         {
-            return GetRegenAmount(Hitpoints);
+            return GetRegenAmount(Hitpoints, RegenFactor, Max);
         }
 
-        public bool Regenerate(out int RegenAmount, MinEvent FromEvent = null, Event FromSEvent = null)
+        public bool Regenerate(out int RegenAmount)
         {
-            int indent = Debug.LastIndent + 1;
+            int indent = Debug.LastIndent;
             Debug.Entry(4, 
-                $"* {nameof(Regenerate)}("
-                + $" FromEvent: {FromEvent?.GetType()?.Name ?? NULL},"
-                + $" FromSEvent: {FromSEvent?.ID ?? NULL})",
-                Indent: indent, Toggle: true);
+                $"* {nameof(Regenerate)}(out int RegenAmount)",
+                Indent: indent, Toggle: doDebug);
 
             RegenAmount = 0;
-            if (ParentObject != null && isDamaged)
+            bool didRegen = false;
+            if (ParentObject != null && IsReady(UseCharge: true) && isDamaged && !Regened && HaveChargeToRegen())
             {
                 int regenMax = RegenDie.Max();
                 int regenMaxPadding = regenMax.ToString().Length;
@@ -240,23 +314,25 @@ namespace XRL.World.Parts
                 RegenAmount = GetRegenAmount();
                 if (byChance && RegenAmount > 0)
                 {
-                    bool isEquipped = Equipper != null;
-                    string equipped = isEquipped ? "equipped " : "";
-                    string message = $"=object.T's= {equipped}=subject.T's= {Grammar.MakeLowerCase(MOD_NAME_COLORED)} =verb:regenerate= from {RegenAmount} damage!";
+                    string equipped = Equipper != null ? "equipped " : "";
+                    string message = $"=object.T's= {equipped}=subject.name's= {Grammar.MakeLowerCase(MOD_NAME_COLORED)} =verb:regenerate= {RegenAmount} HP!";
                     message = GameText.VariableReplace(message, Subject: ParentObject, Object: Holder);
 
                     Debug.Entry(4,
                         $"({rollString}/{regenMax})" +
                         $" {message}",
-                        Indent: indent + 1, Toggle: true
-                        );
+                        Indent: indent + 1, Toggle: doDebug);
 
-                    bool didRegen = ParentObject.Heal(RegenAmount) > 0;
+                    didRegen = ParentObject.Heal(RegenAmount) > 0;
                     if (didRegen)
                     {
+                        ParentObject.UseCharge(GetRegenChargeUse());
+
+                        CumulativeRegen += RegenAmount;
+
                         AddPlayerMessage(message);
 
-                        string fullyRegenMessage = $"=object.T's= {equipped}=subject.T's= {Grammar.MakeLowerCase(MOD_NAME_COLORED)} have fully regenerated =subject.pronoun=!";
+                        string fullyRegenMessage = $"=object.T's= {equipped}=subject.name's= {Grammar.MakeLowerCase(MOD_NAME_COLORED)} have regenerated =pronouns.subjective= fully!";
 
                         if (!isDamaged)
                         {
@@ -270,7 +346,6 @@ namespace XRL.World.Parts
                             }
                         }
                     }
-                    return didRegen;
                 }
                 else
                 {
@@ -278,51 +353,30 @@ namespace XRL.World.Parts
                         $"({rollString}/{regenMax})" +
                         $" {ParentObject?.DebugName ?? NULL}' {Grammar.MakeLowerCase(MOD_NAME_COLORED)}" +
                         $" remained innactive!", 
-                        Indent: indent + 1, Toggle: true);
+                        Indent: indent + 1, Toggle: doDebug);
                 }
             }
-            return false;
+            Regened = true;
+
+            Debug.LastIndent = indent;
+
+            return didRegen;
         }
-        public bool Regenerate(MinEvent FromEvent = null, Event FromSEvent = null)
+        public bool Regenerate()
         {
-            return Regenerate(out _, FromEvent, FromSEvent);
-        }
-        public bool TryRegenerate(out bool DidRegen, out int RegenAmount, MinEvent FromEvent = null, Event FromSEvent = null)
-        {
-            DidRegen = false;
-            RegenAmount = 0;
-            if (ParentObject != null)
-            {
-                DidRegen = true;
-                return Regenerate(out RegenAmount, FromEvent, FromSEvent);
-            }
-            return false;
-        }
-        public bool TryRegenerate(out int RegenAmount, MinEvent FromEvent = null, Event FromSEvent = null)
-        {
-            if (TryRegenerate(out _, out RegenAmount, FromEvent, FromSEvent))
-            {
-                CumulativeRegen += RegenAmount;
-                return true;
-            }
-            return false;
-        }
-        public bool TryRegenerate(out bool DidRegen, MinEvent FromEvent = null, Event FromSEvent = null)
-        {
-            return TryRegenerate(out DidRegen, out _, FromEvent, FromSEvent);
+            return Regenerate(out _);
         }
 
-        public bool Restore(out string Condition, MinEvent FromEvent = null, Event FromSEvent = null)
+        public bool Restore(out string Condition)
         {
-            int indent = Debug.LastIndent + 1;
+            int indent = Debug.LastIndent;
             Debug.Entry(4, 
-                $"* {nameof(Restore)}("
-                + $" FromEvent: {FromEvent?.GetType()?.Name ?? NULL},"
-                + $" FromSEvent: {FromSEvent?.ID ?? NULL})",
-                Indent: indent, Toggle: true);
+                $"* {nameof(Restore)}(out string Condition)",
+                Indent: indent, Toggle: doDebug);
 
             Condition = null;
-            if (ParentObject != null && (isBusted || isRusted))
+            bool didRestore = false;
+            if (ParentObject != null && IsReady(UseCharge: true) && (isBusted || isRusted) && HaveChargeToRestore())
             {
                 int regenMax = RestoreDie.Max();
                 int regenMaxPadding = regenMax.ToString().Length;
@@ -331,27 +385,29 @@ namespace XRL.World.Parts
                 bool byChance = roll == RestoreDie.Max();
                 if (byChance)
                 {
-                    bool isEquipped = Equipper != null;
-                    string equipped = isEquipped ? "equipped " : "";
+                    string equipped = Equipper != null ? "equipped " : "";
+
                     Rusted rusted = ParentObject?.GetEffect<Rusted>();
                     Broken busted = ParentObject?.GetEffect<Broken>();
                     Condition = rusted?.DisplayName ?? busted?.DisplayName;
-                    string message = $"=object.T's= {equipped}=subject.name's= {Grammar.MakeLowerCase(MOD_NAME_COLORED)} restored =subject.pronoun= from being {Condition}!";
+
+                    string message = $"=object.T's= {equipped}=subject.name's= {Grammar.MakeLowerCase(MOD_NAME_COLORED)} restored =pronouns.subjective= from being {Condition}!";
 
                     message = GameText.VariableReplace(message, Subject: ParentObject, Object: Holder);
 
-                    rusted?.Remove(ParentObject);
-                    busted?.Remove(ParentObject);
+                    RepairedEvent.Send(ParentObject, ParentObject, ParentObject);
 
                     Debug.Entry(4,
                         $"({rollString}/{regenMax})" +
                         $" {message}",
-                        Indent: indent + 1, Toggle: true
+                        Indent: indent + 1, Toggle: doDebug
                         );
 
-                    bool didRestore = !(isRusted || isBusted);
+                    didRestore = !(isRusted || isBusted);
                     if (didRestore)
                     {
+                        ParentObject.UseCharge(GetRegenChargeUse());
+                        TimesRestored++;
                         if (Holder.IsPlayer())
                         {
                             Popup.Show(GameText.VariableReplace(message, Subject: ParentObject, Object: Holder));
@@ -361,7 +417,6 @@ namespace XRL.World.Parts
                             AddPlayerMessage(message);
                         }
                     }
-                    return didRestore;
                 }
                 else
                 {
@@ -369,25 +424,17 @@ namespace XRL.World.Parts
                         $"({rollString}/{regenMax})" +
                         $" {ParentObject?.DebugName ?? NULL}' {Grammar.MakeLowerCase(MOD_NAME_COLORED)}" +
                         $" remained innactive!", 
-                        Indent: indent + 1, Toggle: true);
+                        Indent: indent + 1, Toggle: doDebug);
                 }
             }
-            return false;
+
+            Debug.LastIndent = indent;
+
+            return didRestore;
         }
-        public bool TryRestore(out string Condition, MinEvent FromEvent = null, Event FromSEvent = null)
+        public bool Restore()
         {
-            Condition = null;
-            bool DidRestore = false;
-            if (ParentObject != null && Restore(out Condition, FromEvent, FromSEvent))
-            {
-                TimesRestored++;
-                DidRestore = true;
-            }
-            return DidRestore;
-        }
-        public bool TryRestore(MinEvent FromEvent = null, Event FromSEvent = null)
-        {
-            return TryRestore(out _, FromEvent, FromSEvent);
+            return Restore(out _);
         }
 
         public override bool WantTurnTick()
@@ -397,13 +444,11 @@ namespace XRL.World.Parts
                 $"{nameof(WantTurnTick)}()",
                 Indent: Debug.LastIndent, Toggle: doDebug);
 
-            return base.WantTurnTick()
-                || true;
+            return true;
         }
         public override void TurnTick(long TimeTick, int Amount)
         {
-            int chargeUse = 0;
-            bool turnsOverride = TimeTick - StoredTimeTick > 3;
+            bool turnsOverride = TimeTick - StoredTimeTick > 1;
 
             Debug.Entry(4,
                 $"@ {nameof(Mod_UD_RegenNanobots)}"
@@ -413,7 +458,8 @@ namespace XRL.World.Parts
 
             bool inZone =
                 ParentObject != null
-             && ParentObject.CurrentZone == The.ActiveZone
+             && Holder != null
+             && Holder.CurrentZone == The.ActiveZone
              && !ParentObject.IsInGraveyard();
 
             if (inZone)
@@ -426,38 +472,8 @@ namespace XRL.World.Parts
                     Regened = false;
                     StoredTimeTick = TimeTick;
                 }
-
-                if ((isRusted || isBusted) && HaveChargeToRestore(chargeUse) && TryRestore(out string condition))
-                {
-                    Debug.CheckYeh(4, $"{condition} Restored", Indent: 1, Toggle: doDebug);
-                    chargeUse += GetRestoreChargeUse();
-                }
-                else
-                {
-                    Debug.CheckNah(4, $"No Restore", Indent: 1, Toggle: doDebug);
-                    chargeUse += Tier;
-                }
-
-                if (!Regened && isDamaged && HaveChargeToRegen(chargeUse) && TryRegenerate(out Regened, out int regenAmount))
-                {
-                    StoredTimeTick = TimeTick;
-                    Debug.CheckYeh(4, $"Regened {regenAmount}", Indent: 1, Toggle: doDebug);
-                    chargeUse += GetRegenChargeUse();
-                }
-                else
-                {
-                    Debug.CheckNah(4, $"No Regen", Indent: 1, Toggle: doDebug);
-                    chargeUse += Tier;
-                }
-
-                bool usedCharge = false;
-                if (chargeUse > 0 && ParentObject.UseCharge(chargeUse))
-                {
-                    usedCharge = true;
-                }
-                Debug.LoopItem(4,
-                    $"{nameof(usedCharge)}", $"{usedCharge}",
-                    Good: usedCharge, Indent: 2, Toggle: doDebug);
+                Restore();
+                Regenerate();
             }
             else
             {
@@ -506,13 +522,13 @@ namespace XRL.World.Parts
         {
             if (E.Understood() && !E.Object.HasProperName)
             {
-                E.AddWithClause(Grammar.MakeLowerCase(MOD_NAME_COLORED));
+                E.AddWithClause(GetDynamicModName(LowerCase: true));
             }
             return base.HandleEvent(E);
         }
         public override bool HandleEvent(GetShortDescriptionEvent E)
         {
-            E.Postfix.AppendRules(GetDescription());
+            E.Postfix.AppendRules(GetInstanceDescription());
 
             if (DebugDuctapeModDescriptions)
             {
@@ -534,20 +550,34 @@ namespace XRL.World.Parts
                     equipmentFrame = coloredEquipmentFrame += "}}"; 
                 }
 
-                SB.AppendColored("M", MOD_NAME).Append(": ");
+                bool haveChargeToRegen = HaveChargeToRegen();
+                bool haveChargeToRestore = HaveChargeToRestore();
+
+                SB.AppendColored("M", Grammar.MakeTitleCase(MOD_NAME)).Append(": ");
                 SB.AppendLine();
-                SB.AppendColored("W", $"State").AppendLine();
+
+                SB.AppendColored("W", $"State")
+                    .AppendLine();
                 SB.Append(VANDR).Append($"[{Regened.YehNah(true)}]{HONLY}{nameof(Regened)}: ")
                     .AppendColored("B", $"{Regened}");
-                SB.AppendLine();
-                SB.Append(VANDR).Append("(").AppendColored("C", $"{StoredTimeTick}-{The.Game.TimeTicks}|{The.Game.TimeTicks-StoredTimeTick}")
-                    .Append($"){HONLY}Current{nameof(The.Game.TimeTicks)}-{nameof(StoredTimeTick)}|Difference");
                 SB.AppendLine();
                 SB.Append(VANDR).Append("(").AppendColored("o", $"{RegenDie}")
                     .Append($"){HONLY}{nameof(RegenDie)}");
                 SB.AppendLine();
                 SB.Append(VANDR).Append("(").AppendColored("o", $"{RestoreDie}")
                     .Append($"){HONLY}{nameof(RestoreDie)}");
+                SB.AppendLine();
+                SB.Append(VANDR).Append("(").AppendColored("g", $"{GetRegenAmount(Max: true)}")
+                    .Append($"){HONLY}{nameof(GetRegenAmount)}()");
+                SB.AppendLine();
+                SB.Append(VANDR).Append("(").AppendColored("W", $"{ParentObject.QueryCharge()}")
+                    .Append($"){HONLY}{nameof(ParentObject.QueryCharge)}()");
+                SB.AppendLine();
+                SB.Append(VANDR).Append("(").AppendColored("W", $"{GetRegenChargeUse()}")
+                    .Append($"){HONLY}{nameof(GetRegenChargeUse)}()");
+                SB.AppendLine();
+                SB.Append(VANDR).Append("(").AppendColored("W", $"{GetRestoreChargeUse()}")
+                    .Append($"){HONLY}{nameof(GetRestoreChargeUse)}()");
                 SB.AppendLine();
                 SB.Append(VANDR).Append("(").AppendColored("g", $"{CumulativeRegen}")
                     .Append($"){HONLY}{nameof(CumulativeRegen)}");
@@ -558,15 +588,35 @@ namespace XRL.World.Parts
                 SB.Append(TANDR).Append("(").AppendColored("y", $"{equipmentFrame}")
                     .Append($"){HONLY}EquipmentFrameColors");
                 SB.AppendLine();
-                SB.AppendColored("W", $"Bools").AppendLine();
+
+                SB.AppendColored("W", $"TimeTick")
+                    .AppendLine();
+                SB.Append(VANDR).Append("(").AppendColored("y", $"{The.Game.TimeTicks}")
+                    .Append($"){HONLY}Current{nameof(The.Game.TimeTicks)}");
+                SB.AppendLine();
+                SB.Append(VANDR).Append("(").AppendColored("y", $"{StoredTimeTick}")
+                    .Append($"){HONLY}{nameof(StoredTimeTick)}");
+                SB.AppendLine();
+                SB.Append(TANDR).Append("(").AppendColored("y", $"{The.Game.TimeTicks - StoredTimeTick}")
+                    .Append($"){HONLY}Difference");
+                SB.AppendLine();
+
+                SB.AppendColored("W", $"Bools")
+                    .AppendLine();
                 SB.Append(VANDR).Append($"[{isDamaged.YehNah(true)}]{HONLY}{nameof(isDamaged)}: ")
                     .AppendColored("B", $"{isDamaged}");
                 SB.AppendLine();
                 SB.Append(VANDR).Append($"[{isRusted.YehNah(true)}]{HONLY}{nameof(isRusted)}: ")
                     .AppendColored("B", $"{isRusted}");
                 SB.AppendLine();
-                SB.Append(TANDR).Append($"[{isBusted.YehNah(true)}]{HONLY}{nameof(isBusted)}: ")
+                SB.Append(VANDR).Append($"[{isBusted.YehNah(true)}]{HONLY}{nameof(isBusted)}: ")
                     .AppendColored("B", $"{isBusted}");
+                SB.AppendLine();
+                SB.Append(VANDR).Append($"[{haveChargeToRegen.YehNah()}]{HONLY}{nameof(HaveChargeToRegen)}(): ")
+                    .AppendColored("B", $"{haveChargeToRegen}");
+                SB.AppendLine();
+                SB.Append(TANDR).Append($"[{haveChargeToRestore.YehNah()}]{HONLY}{nameof(HaveChargeToRestore)}(): ")
+                    .AppendColored("B", $"{haveChargeToRestore}");
                 SB.AppendLine();
 
                 E.Infix.AppendLine().AppendRules(Event.FinalizeString(SB));

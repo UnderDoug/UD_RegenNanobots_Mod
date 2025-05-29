@@ -2,6 +2,7 @@
 <mods>
   <mod Part="Mod_UD_RegenNanobots" 
        Tables="CommonMods" Rarity="R2" TinkerTier="8"
+       Ingredient="Fixit Spray"
        TinkerAllowed="true" CanAutoTinker="true" BonusAllowed="true"
        Value="1.6" TinkerCategory="utility" 
        TinkerDisplayName="fitted with regenerative nanobots" />
