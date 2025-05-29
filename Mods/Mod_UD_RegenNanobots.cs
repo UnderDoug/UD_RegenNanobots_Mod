@@ -22,6 +22,27 @@ namespace XRL.World.Parts
     public class Mod_UD_RegenNanobots : IModification
     {
         private static readonly bool doDebug = true;
+        private static bool getDoDebug(object what = null)
+        {
+            List<object> doList = new()
+            {
+                'V',    // Vomit
+            };
+            List<object> dontList = new()
+            {
+                nameof(GetDynamicModName),
+                'R',    // Removal
+                'S',    // Serialisation
+            };
+
+            if (what != null && doList.Contains(what))
+                return true;
+
+            if (what != null && dontList.Contains(what))
+                return false;
+
+            return doDebug;
+        }
 
         private static bool DebugDuctapeModDescriptions => Options.DebugRegenNanobotsModDescriptions;
 
@@ -33,7 +54,7 @@ namespace XRL.World.Parts
 
         private GameObject Holder => ParentObject?.Holder;
 
-        public static readonly string EQ_FRAME_COLORS = "rRgG";
+        public static readonly string EQ_FRAME_COLORS = "RWGY";
 
         public static readonly string REGENERATIVE = "regenerative";
 
@@ -62,6 +83,9 @@ namespace XRL.World.Parts
         public bool isDamaged => ParentObject != null && ParentObject.isDamaged();
         public bool isBusted => ParentObject != null && ParentObject.IsBroken();
         public bool isRusted => ParentObject != null && ParentObject.IsRusted();
+        public bool isShattered => ParentObject != null && ParentObject.HasEffect<ShatteredArmor>();
+
+        private bool wantsRestore => isBusted || isRusted || isShattered;
 
         public Mod_UD_RegenNanobots()
             : base()
@@ -164,20 +188,27 @@ namespace XRL.World.Parts
             string regenerative = LowerCase ? Grammar.MakeLowerCase(REGENERATIVE) : Grammar.MakeTitleCase(REGENERATIVE);
             string nanobots = LowerCase ? Grammar.MakeLowerCase(NANOBOTS) : Grammar.MakeTitleCase(NANOBOTS);
             Statistic Hitpoints = Item.GetStat("Hitpoints");
+
             int remainingHP = Hitpoints.Value;
             int maxHP = Hitpoints.BaseValue;
             float percentHP = (float)remainingHP / (float)maxHP;
             int breakPoint = (int)Math.Floor(regenerative.Length * percentHP);
-            Debug.Entry(4, $"{remainingHP}/{maxHP} = {percentHP}; {nameof(breakPoint)}: {breakPoint}", Indent: indent + 1, Toggle: doDebug);
+
+            Debug.Entry(4, $"{remainingHP}/{maxHP} = {percentHP}; {nameof(breakPoint)}: {breakPoint}", 
+                Indent: indent + 1, Toggle: getDoDebug(nameof(GetDynamicModName)));
+
             if (breakPoint < regenerative.Length - 1)
             {
                 int brightPoint = Math.Max(0, breakPoint - 1);
-                int dullPoint = Math.Min(breakPoint + 1, regenerative.Length - 1);
+                int dullPoint = Math.Min(breakPoint, regenerative.Length - 1);
                 int whitePoint = brightPoint;
 
-                Debug.Entry(4, $"{nameof(brightPoint)}: {brightPoint}", Indent: indent + 2, Toggle: doDebug);
-                Debug.Entry(4, $"{nameof(dullPoint)}: {dullPoint}", Indent: indent + 2, Toggle: doDebug);
-                Debug.Entry(4, $"{nameof(whitePoint)}: {whitePoint}", Indent: indent + 2, Toggle: doDebug);
+                Debug.Entry(4, $"{nameof(brightPoint)}: {brightPoint}",
+                    Indent: indent + 2, Toggle: getDoDebug(nameof(GetDynamicModName)));
+                Debug.Entry(4, $"{nameof(dullPoint)}: {dullPoint}", 
+                    Indent: indent + 2, Toggle: getDoDebug(nameof(GetDynamicModName)));
+                Debug.Entry(4, $"{nameof(whitePoint)}: {whitePoint}", 
+                    Indent: indent + 2, Toggle: getDoDebug(nameof(GetDynamicModName)));
 
                 string regenBright = brightPoint > 0 ? regenerative[..brightPoint].Color("regenerating") : "";
                 string regenDull = regenerative[dullPoint..].Color("K");
@@ -315,7 +346,7 @@ namespace XRL.World.Parts
                 if (byChance && RegenAmount > 0)
                 {
                     string equipped = Equipper != null ? "equipped " : "";
-                    string message = $"=object.T's= {equipped}=subject.name's= {Grammar.MakeLowerCase(MOD_NAME_COLORED)} =verb:regenerate= {RegenAmount} HP!";
+                    string message = $"=object.T's= {equipped}{ParentObject.Render.DisplayName}'s {Grammar.MakeLowerCase(MOD_NAME_COLORED)} =verb:regenerate= {RegenAmount} HP!";
                     message = GameText.VariableReplace(message, Subject: ParentObject, Object: Holder);
 
                     Debug.Entry(4,
@@ -332,7 +363,7 @@ namespace XRL.World.Parts
 
                         AddPlayerMessage(message);
 
-                        string fullyRegenMessage = $"=object.T's= {equipped}=subject.name's= {Grammar.MakeLowerCase(MOD_NAME_COLORED)} have regenerated =pronouns.subjective= fully!";
+                        string fullyRegenMessage = $"=object.T's=  {equipped}{ParentObject.Render.DisplayName}'s {Grammar.MakeLowerCase(MOD_NAME_COLORED)} have regenerated {ParentObject.it} fully!";
 
                         if (!isDamaged)
                         {
@@ -376,7 +407,7 @@ namespace XRL.World.Parts
 
             Condition = null;
             bool didRestore = false;
-            if (ParentObject != null && IsReady(UseCharge: true) && (isBusted || isRusted) && HaveChargeToRestore())
+            if (ParentObject != null && IsReady(UseCharge: true) && wantsRestore && HaveChargeToRestore())
             {
                 int regenMax = RestoreDie.Max();
                 int regenMaxPadding = regenMax.ToString().Length;
@@ -387,15 +418,18 @@ namespace XRL.World.Parts
                 {
                     string equipped = Equipper != null ? "equipped " : "";
 
+                    ShatteredArmor shattered = ParentObject?.GetEffect<ShatteredArmor>();
                     Rusted rusted = ParentObject?.GetEffect<Rusted>();
                     Broken busted = ParentObject?.GetEffect<Broken>();
-                    Condition = rusted?.DisplayName ?? busted?.DisplayName;
+                    Condition = shattered?.DisplayName ?? rusted?.DisplayName ?? busted?.DisplayName;
 
-                    string message = $"=object.T's= {equipped}=subject.name's= {Grammar.MakeLowerCase(MOD_NAME_COLORED)} restored =pronouns.subjective= from being {Condition}!";
+                    string message = $"=object.T's= {equipped}{ParentObject.Render.DisplayName}'s {Grammar.MakeLowerCase(MOD_NAME_COLORED)} restored {ParentObject.it} from being {Condition}!";
 
                     message = GameText.VariableReplace(message, Subject: ParentObject, Object: Holder);
 
+                    int existingPenalty = Hitpoints.Penalty;
                     RepairedEvent.Send(ParentObject, ParentObject, ParentObject);
+                    Hitpoints.Penalty = existingPenalty;
 
                     Debug.Entry(4,
                         $"({rollString}/{regenMax})" +
@@ -403,7 +437,7 @@ namespace XRL.World.Parts
                         Indent: indent + 1, Toggle: doDebug
                         );
 
-                    didRestore = !(isRusted || isBusted);
+                    didRestore = !wantsRestore;
                     if (didRestore)
                     {
                         ParentObject.UseCharge(GetRegenChargeUse());
@@ -605,6 +639,9 @@ namespace XRL.World.Parts
                     .AppendLine();
                 SB.Append(VANDR).Append($"[{isDamaged.YehNah(true)}]{HONLY}{nameof(isDamaged)}: ")
                     .AppendColored("B", $"{isDamaged}");
+                SB.AppendLine();
+                SB.Append(VANDR).Append($"[{isShattered.YehNah(true)}]{HONLY}{nameof(isShattered)}: ")
+                    .AppendColored("B", $"{isShattered}");
                 SB.AppendLine();
                 SB.Append(VANDR).Append($"[{isRusted.YehNah(true)}]{HONLY}{nameof(isRusted)}: ")
                     .AppendColored("B", $"{isRusted}");

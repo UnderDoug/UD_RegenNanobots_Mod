@@ -56,20 +56,6 @@ namespace UD_RegenNanobots_Mod
             SetStringOption(Directory[ID], $"{Value}");
         }
 
-        // Checkbox settings
-
-        public static bool ObnoxiousYelling
-        {
-            get
-            {
-                return GetBoolOption(nameof(ObnoxiousYelling), true);
-            }
-            set
-            {
-                SetBoolOption(nameof(ObnoxiousYelling), value);
-            }
-        }
-
         // Debug Settings
         public static int DebugVerbosity
         {
