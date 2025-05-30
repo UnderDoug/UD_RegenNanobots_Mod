@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <mods>
   <mod Part="Mod_UD_RegenNanobots" 
-       Tables="CommonMods" Rarity="R2" TinkerTier="8"
+       Tables="CommonMods,PotteryMods,ShevaPotteryMods,EnergyCellMods,GrenadeMods,NuggetMods,GemstoneMods,TonicMods" Rarity="R2" TinkerTier="8"
        TinkerIngredient="Fixit Spray"
        TinkerAllowed="true" CanAutoTinker="true" BonusAllowed="true"
        Value="1.6" TinkerCategory="utility" 

@@ -130,12 +130,6 @@ namespace XRL.World.Parts
         }
         public override bool ModificationApplicable(GameObject Object)
         {
-            Debug.Entry(4,
-                $"{nameof(Mod_UD_RegenNanobots)}." +
-                $"{nameof(ModificationApplicable)}(" +
-                $"{Object?.DebugName ?? NULL})",
-                Indent: Debug.LastIndent, Toggle: doDebug);
-
             return CanRegen(Object);
         }
         public static bool CanRegen(GameObject Object, string Context = "")
