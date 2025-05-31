@@ -116,17 +116,8 @@ namespace XRL.World.Parts
         }
         public override void TierConfigure()
         {
-            int multiplier = 1;
-            if (ParentObject != null)
-            {
-                multiplier += ObjectTechTier;
-            }
-            if (Examiner != null)
-            {
-                multiplier += Examiner.Complexity;
-            }
-            ChargeUse = Tier * multiplier;
-            ChargeMinimum = ChargeUse;
+            ChargeUse = CalculateBaseChargeUse();
+            ChargeMinimum = CalculateBaseChargeUse();
         }
         public override bool ModificationApplicable(GameObject Object)
         {
@@ -143,6 +134,28 @@ namespace XRL.World.Parts
                     Indent: Debug.LastIndent, Toggle: doDebug);
             }
             return Object != null && Object.HasStat("Hitpoints");
+        }
+
+        public static int CalculateBaseChargeUse(int Tier = 1, int ObjectTechTier = 0, int Complexity = 0)
+        {
+            int multiplier = 1;
+            multiplier += ObjectTechTier;
+            multiplier += Complexity;
+            return Tier * multiplier;
+        }
+        public int CalculateBaseChargeUse()
+        {
+            int complexity = 1;
+            int objectTechTier = 1;
+            if (ParentObject != null)
+            {
+                objectTechTier = ObjectTechTier;
+            }
+            if (Examiner != null)
+            {
+                complexity = Examiner.Complexity;
+            }
+            return CalculateBaseChargeUse(Tier, objectTechTier, complexity);
         }
 
         public static string GetDescription(int Tier)
@@ -239,10 +252,13 @@ namespace XRL.World.Parts
 
             if (ChargeUse > 0)
             {
-                Object.RequirePart<EnergyCellSocket>();
-                IncreaseDifficultyAndComplexity(3, 2);
-                ApplyEquipmentFrameColors();
+                if (!Object.HasPartDescendedFrom<IEnergyCell>())
+                {
+                    Object.RequirePart<EnergyCellSocket>();
+                }
             }
+            IncreaseDifficultyAndComplexity(3, 2);
+            ApplyEquipmentFrameColors();
         }
         public bool ApplyEquipmentFrameColors()
         {
@@ -340,7 +356,7 @@ namespace XRL.World.Parts
                 if (byChance && RegenAmount > 0)
                 {
                     string equipped = Equipper != null ? "equipped " : "";
-                    string message = $"=object.T's= {equipped}{ParentObject.Render.DisplayName}'s {Grammar.MakeLowerCase(MOD_NAME_COLORED)} =verb:regenerate= {RegenAmount} HP!";
+                    string message = $"=object.T's= {equipped}{ParentObject?.ShortDisplayNameWithoutTitlesStripped}'s {Grammar.MakeLowerCase(MOD_NAME_COLORED)} =verb:regenerate= {RegenAmount} HP!";
                     message = GameText.VariableReplace(message, Subject: ParentObject, Object: Holder);
 
                     Debug.Entry(4,
@@ -357,7 +373,7 @@ namespace XRL.World.Parts
 
                         AddPlayerMessage(message);
 
-                        string fullyRegenMessage = $"=object.T's=  {equipped}{ParentObject.Render.DisplayName}'s {Grammar.MakeLowerCase(MOD_NAME_COLORED)} have regenerated {ParentObject.it} fully!";
+                        string fullyRegenMessage = $"=object.T's=  {equipped}{ParentObject?.ShortDisplayNameWithoutTitlesStripped}'s {Grammar.MakeLowerCase(MOD_NAME_COLORED)} have regenerated {ParentObject.it} fully!";
 
                         if (!isDamaged)
                         {
@@ -417,7 +433,7 @@ namespace XRL.World.Parts
                     Broken busted = ParentObject?.GetEffect<Broken>();
                     Condition = shattered?.DisplayName ?? rusted?.DisplayName ?? busted?.DisplayName;
 
-                    string message = $"=object.T's= {equipped}{ParentObject.Render.DisplayName}'s {Grammar.MakeLowerCase(MOD_NAME_COLORED)} restored {ParentObject.it} from being {Condition}!";
+                    string message = $"=object.T's= {equipped}{ParentObject?.ShortDisplayNameWithoutTitlesStripped}'s {Grammar.MakeLowerCase(MOD_NAME_COLORED)} restored {ParentObject.it} from being {Condition}!";
 
                     message = GameText.VariableReplace(message, Subject: ParentObject, Object: Holder);
 
@@ -478,20 +494,14 @@ namespace XRL.World.Parts
         {
             bool turnsOverride = TimeTick - StoredTimeTick > 1;
 
-            Debug.Entry(4,
-                $"@ {nameof(Mod_UD_RegenNanobots)}"
-                + $"{nameof(TurnTick)}"
-                + $"(long TimeTick: {TimeTick}, int Amount: {Amount})",
-                Indent: 0, Toggle: doDebug);
-
-            bool inZone =
-                ParentObject != null
-             && Holder != null
-             && Holder.CurrentZone == The.ActiveZone
-             && !ParentObject.IsInGraveyard();
-
-            if (inZone)
+            if (ParentObject != null && Holder != null && Holder.CurrentZone == The.ActiveZone && !ParentObject.IsInGraveyard())
             {
+                Debug.Entry(4,
+                    $"@ {nameof(Mod_UD_RegenNanobots)}."
+                    + $"{nameof(TurnTick)}"
+                    + $"(long TimeTick: {TimeTick}, int Amount: {Amount})",
+                    Indent: 0, Toggle: doDebug);
+
                 Debug.CheckYeh(4, $"In Zone", Indent: 1, Toggle: doDebug);
                 
                 if (Regened && turnsOverride)
@@ -502,10 +512,6 @@ namespace XRL.World.Parts
                 }
                 Restore();
                 Regenerate();
-            }
-            else
-            {
-                Debug.CheckNah(4, $"Not in Zone", Indent: 1, Toggle: doDebug);
             }
             base.TurnTick(TimeTick, Amount);
         }
@@ -533,9 +539,28 @@ namespace XRL.World.Parts
         public override bool WantEvent(int ID, int cascade)
         {
             return base.WantEvent(ID, cascade)
+                || ID == ModificationAppliedEvent.ID
                 || ID == GetItemElementsEvent.ID
                 || ID == GetDisplayNameEvent.ID
                 || ID == GetShortDescriptionEvent.ID;
+        }
+        public override bool HandleEvent(ModificationAppliedEvent E)
+        {
+            if (E.Object == ParentObject && E.Modification == this)
+            {
+                TierConfigure(); 
+                
+                if (E.Object.HasPartDescendedFrom<IEnergyCell>())
+                {
+                    ZeroPointEnergyCollector zPECollector = E.Object.RequirePart<ZeroPointEnergyCollector>();
+                    TierConfigure();
+                    zPECollector.ChargeRate = (int)(ChargeUse * 1.5);
+                    zPECollector.World = "*";
+                    zPECollector.IsBootSensitive = false;
+                    zPECollector.IsPowerSwitchSensitive = false;
+                }
+            }
+            return base.HandleEvent(E);
         }
         public override bool HandleEvent(GetItemElementsEvent E)
         {
@@ -581,6 +606,8 @@ namespace XRL.World.Parts
                 bool haveChargeToRegen = HaveChargeToRegen();
                 bool haveChargeToRestore = HaveChargeToRestore();
 
+                int complexity = Examiner != null ? Examiner.Complexity : 0;
+
                 SB.AppendColored("M", Grammar.MakeTitleCase(MOD_NAME)).Append(": ");
                 SB.AppendLine();
 
@@ -601,10 +628,22 @@ namespace XRL.World.Parts
                 SB.Append(VANDR).Append("(").AppendColored("W", $"{ParentObject.QueryCharge()}")
                     .Append($"){HONLY}{nameof(ParentObject.QueryCharge)}()");
                 SB.AppendLine();
-                SB.Append(VANDR).Append("(").AppendColored("W", $"{GetRegenChargeUse()}")
+                SB.Append(VONLY).Append(VANDR).Append("(")
+                    .AppendColored("W", $"{Tier}").Append(" * ")
+                    .Append("(")
+                    .AppendColored("W", $"{1}").Append(" + ")
+                    .AppendColored("W", $"{ObjectTechTier}").Append(" + ")
+                    .AppendColored("W", $"{complexity}")
+                    .Append(")")
+                    .Append($"){HONLY}Charge Figures");
+                SB.AppendLine();
+                SB.Append(VONLY).Append(VANDR).Append("(").AppendColored("W", $"{ChargeUse}")
+                    .Append($"){HONLY}{nameof(ChargeUse)}");
+                SB.AppendLine();
+                SB.Append(VONLY).Append(VANDR).Append("(").AppendColored("W", $"{GetRegenChargeUse()}")
                     .Append($"){HONLY}{nameof(GetRegenChargeUse)}()");
                 SB.AppendLine();
-                SB.Append(VANDR).Append("(").AppendColored("W", $"{GetRestoreChargeUse()}")
+                SB.Append(VONLY).Append(TANDR).Append("(").AppendColored("W", $"{GetRestoreChargeUse()}")
                     .Append($"){HONLY}{nameof(GetRestoreChargeUse)}()");
                 SB.AppendLine();
                 SB.Append(VANDR).Append("(").AppendColored("g", $"{CumulativeRegen}")
