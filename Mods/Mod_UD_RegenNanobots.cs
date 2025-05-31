@@ -207,7 +207,7 @@ namespace XRL.World.Parts
             if (breakPoint < regenerative.Length - 1)
             {
                 int brightPoint = Math.Max(0, breakPoint - 1);
-                int dullPoint = Math.Min(breakPoint, regenerative.Length - 1);
+                int dullPoint = Math.Max(1, Math.Min(breakPoint, regenerative.Length - 1));
                 int whitePoint = brightPoint;
 
                 Debug.Entry(4, $"{nameof(brightPoint)}: {brightPoint}",
@@ -218,7 +218,7 @@ namespace XRL.World.Parts
                     Indent: indent + 2, Toggle: getDoDebug(nameof(GetDynamicModName)));
 
                 string regenBright = brightPoint > 0 ? regenerative[..brightPoint].Color("regenerating") : "";
-                string regenDull = regenerative[dullPoint..].Color("K");
+                string regenDull = regenerative[dullPoint..].Color("greygoo");
                 string regenWhite = regenerative.Substring(whitePoint, 1).Color("Y");
 
                 regenerative = regenBright + regenWhite + regenDull;
@@ -277,32 +277,20 @@ namespace XRL.World.Parts
 
         public int GetRegenChargeUse()
         {
-            if (Hitpoints == null) return 0;
-            int multiplier = 1;
-            if (ParentObject != null)
+            if (Hitpoints == null)
             {
-                multiplier += ObjectTechTier;
+                return 0;
             }
-            if (Examiner != null)
-            {
-                multiplier += Examiner.Complexity;
-            }
-            return 10 * multiplier * GetRegenAmount(Max: true) * Tier * ObjectTechTier;
+            return 10 * CalculateBaseChargeUse() * GetRegenAmount(Max: true);
         }
 
         public int GetRestoreChargeUse()
         {
-            if (Hitpoints == null) return 0;
-            int multiplier = 1;
-            if (ParentObject != null)
+            if (Hitpoints == null)
             {
-                multiplier += ObjectTechTier;
+                return 0;
             }
-            if (Examiner != null)
-            {
-                multiplier += Examiner.Complexity;
-            }
-            return 10 * multiplier * Hitpoints.BaseValue * Tier * ObjectTechTier;
+            return CalculateBaseChargeUse() * Hitpoints.BaseValue;
         }
 
         public bool HaveChargeToRegen(int LessAmount = 0)
@@ -356,7 +344,7 @@ namespace XRL.World.Parts
                 if (byChance && RegenAmount > 0)
                 {
                     string equipped = Equipper != null ? "equipped " : "";
-                    string message = $"=object.T's= {equipped}{ParentObject?.ShortDisplayNameWithoutTitlesStripped}'s {Grammar.MakeLowerCase(MOD_NAME_COLORED)} =verb:regenerate= {RegenAmount} HP!";
+                    string message = $"=object.T's= {equipped}{ParentObject.BaseDisplayName}'s {Grammar.MakeLowerCase(MOD_NAME_COLORED)} =verb:regenerate= {RegenAmount} HP!";
                     message = GameText.VariableReplace(message, Subject: ParentObject, Object: Holder);
 
                     Debug.Entry(4,
@@ -373,7 +361,7 @@ namespace XRL.World.Parts
 
                         AddPlayerMessage(message);
 
-                        string fullyRegenMessage = $"=object.T's=  {equipped}{ParentObject?.ShortDisplayNameWithoutTitlesStripped}'s {Grammar.MakeLowerCase(MOD_NAME_COLORED)} have regenerated {ParentObject.it} fully!";
+                        string fullyRegenMessage = $"=object.T's= {equipped}{ParentObject.BaseDisplayName}'s {Grammar.MakeLowerCase(MOD_NAME_COLORED)} have regenerated {ParentObject.it} fully!";
 
                         if (!isDamaged)
                         {
@@ -546,18 +534,40 @@ namespace XRL.World.Parts
         }
         public override bool HandleEvent(ModificationAppliedEvent E)
         {
-            if (E.Object == ParentObject && E.Modification == this)
+            if (E.Object == ParentObject && E.Object.TryGetPart(out EnergyCell energyCell))
             {
-                TierConfigure(); 
-                
-                if (E.Object.HasPartDescendedFrom<IEnergyCell>())
+                TierConfigure();
+                int baseChargeRate = (int)(ChargeUse * 1.5);
+                int combinedChargeRate = baseChargeRate;
+
+                if (!E.Object.TryGetPart(out ZeroPointEnergyCollector zPECollector))
                 {
-                    ZeroPointEnergyCollector zPECollector = E.Object.RequirePart<ZeroPointEnergyCollector>();
-                    TierConfigure();
-                    zPECollector.ChargeRate = (int)(ChargeUse * 1.5);
-                    zPECollector.World = "*";
-                    zPECollector.IsBootSensitive = false;
-                    zPECollector.IsPowerSwitchSensitive = false;
+                    zPECollector = E.Object.RequirePart<ZeroPointEnergyCollector>();
+                }
+                zPECollector.ChargeRate = baseChargeRate;
+                zPECollector.World = "*";
+                zPECollector.IsBootSensitive = false;
+                zPECollector.IsPowerSwitchSensitive = false;
+                zPECollector.IsBreakageSensitive = false;
+                zPECollector.IsRustSensitive = false;
+                zPECollector.WorksOnSelf = true;
+
+                if (E.Object.TryGetPart(out BroadcastPowerReceiver broadcastPowerReceiver))
+                {
+                    combinedChargeRate += broadcastPowerReceiver.ChargeRate;
+                }
+                if (E.Object.TryGetPart(out SolarArray solarArray))
+                {
+                    combinedChargeRate += solarArray.ChargeRate;
+                }
+                IntegralRecharger integralRecharger = E.Object.RequirePart<IntegralRecharger>();
+                if (integralRecharger.ChargeRate != 0 && integralRecharger.ChargeRate < combinedChargeRate)
+                {
+                    integralRecharger.ChargeRate = combinedChargeRate;
+                }
+                if (energyCell.ChargeRate < combinedChargeRate)
+                {
+                    energyCell.ChargeRate = combinedChargeRate;
                 }
             }
             return base.HandleEvent(E);
@@ -637,6 +647,12 @@ namespace XRL.World.Parts
                     .Append(")")
                     .Append($"){HONLY}Charge Figures");
                 SB.AppendLine();
+                if (ParentObject.TryGetPart(out ZeroPointEnergyCollector zPECollector))
+                {
+                    SB.Append(VONLY).Append(VANDR).Append("(").AppendColored("W", $"{zPECollector.ChargeRate}")
+                        .Append($"){HONLY}{nameof(ZeroPointEnergyCollector)}");
+                    SB.AppendLine();
+                }
                 SB.Append(VONLY).Append(VANDR).Append("(").AppendColored("W", $"{ChargeUse}")
                     .Append($"){HONLY}{nameof(ChargeUse)}");
                 SB.AppendLine();
