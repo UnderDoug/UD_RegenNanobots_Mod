@@ -13,6 +13,7 @@ using XRL.World.Capabilities;
 using UD_RegenNanobots_Mod;
 using static UD_RegenNanobots_Mod.Const;
 using static UD_RegenNanobots_Mod.Utils;
+
 using Debug = UD_RegenNanobots_Mod.Debug;
 using Options = UD_RegenNanobots_Mod.Options;
 
@@ -33,6 +34,7 @@ namespace XRL.World.Parts
                 nameof(GetDynamicModName),
                 'R',    // Removal
                 'S',    // Serialisation
+                'x',    // trace
             };
 
             if (what != null && doList.Contains(what))
@@ -44,7 +46,7 @@ namespace XRL.World.Parts
             return doDebug;
         }
 
-        private static bool DebugDuctapeModDescriptions => Options.DebugRegenNanobotsModDescriptions;
+        private static bool DebugRegenNanobotsModDescriptions => Options.DebugRegenNanobotsModDescriptions;
 
         private Statistic Hitpoints => ParentObject?.GetStat(nameof(Hitpoints));
 
@@ -80,6 +82,8 @@ namespace XRL.World.Parts
 
         private double StoredTimeTick = 0;
 
+        public int CumulativeChargeUse = 0;
+
         public bool isDamaged => ParentObject != null && ParentObject.isDamaged();
         public bool isBusted => ParentObject != null && ParentObject.IsBroken();
         public bool isRusted => ParentObject != null && ParentObject.IsRusted();
@@ -106,6 +110,9 @@ namespace XRL.World.Parts
         }
         public override void Configure()
         {
+            Debug.Entry(4, $"{nameof(Mod_UD_RegenNanobots)}.{nameof(Configure)}",
+                Indent: Debug.LastIndent, Toggle: getDoDebug('x'));
+
             WorksOnSelf = true;
             IsBreakageSensitive = false;
             IsRustSensitive = false;
@@ -116,6 +123,9 @@ namespace XRL.World.Parts
         }
         public override void TierConfigure()
         {
+            Debug.Entry(4, $"{nameof(Mod_UD_RegenNanobots)}.{nameof(TierConfigure)}",
+                Indent: Debug.LastIndent, Toggle: getDoDebug('x'));
+
             ChargeUse = CalculateBaseChargeUse();
             ChargeMinimum = CalculateBaseChargeUse();
         }
@@ -138,6 +148,9 @@ namespace XRL.World.Parts
 
         public static int CalculateBaseChargeUse(int Tier = 1, int ObjectTechTier = 0, int Complexity = 0)
         {
+            Debug.Entry(4, $"{nameof(Mod_UD_RegenNanobots)}.{nameof(CalculateBaseChargeUse)} (static)", 
+                Indent: Debug.LastIndent, Toggle: getDoDebug('x'));
+
             int multiplier = 1;
             multiplier += ObjectTechTier;
             multiplier += Complexity;
@@ -145,6 +158,9 @@ namespace XRL.World.Parts
         }
         public int CalculateBaseChargeUse()
         {
+            Debug.Entry(4, $"{nameof(Mod_UD_RegenNanobots)}.{nameof(CalculateBaseChargeUse)} (instance)",
+                Indent: Debug.LastIndent, Toggle: getDoDebug('x'));
+
             int complexity = 1;
             int objectTechTier = 1;
             if (ParentObject != null)
@@ -160,10 +176,16 @@ namespace XRL.World.Parts
 
         public static string GetDescription(int Tier)
         {
+            Debug.Entry(4, $"{nameof(Mod_UD_RegenNanobots)}.{nameof(GetDescription)}(int) (static)",
+                Indent: Debug.LastIndent, Toggle: getDoDebug('x'));
+
             return $"{MOD_NAME_COLORED}: while powered, this item will gradually regenerate HP and has a small chance to be restored from being rusted or broken. Higher tier items require more charge to function.";
         }
         public static string GetDescription(GameObject Item, int Tier)
         {
+            Debug.Entry(4, $"{nameof(Mod_UD_RegenNanobots)}.{nameof(GetDescription)}(GameObject, int) (static)",
+                Indent: Debug.LastIndent, Toggle: getDoDebug('x'));
+
             Statistic hitpoints = Item.GetStat("Hitpoints");
             if (hitpoints != null)
             {
@@ -186,59 +208,86 @@ namespace XRL.World.Parts
         }
         public string GetInstanceDescription()
         {
+            Debug.Entry(4, $"{nameof(Mod_UD_RegenNanobots)}.{nameof(GetInstanceDescription)}",
+                Indent: Debug.LastIndent, Toggle: getDoDebug('x'));
+
             return GetDescription(ParentObject, Tier);
         }
         public static string GetDynamicModName(GameObject Item, int Tier, bool LowerCase = false)
         {
+            Debug.Entry(4, $"{nameof(Mod_UD_RegenNanobots)}.{nameof(GetDynamicModName)} (static)",
+                Indent: Debug.LastIndent, Toggle: getDoDebug('x'));
+
             int indent = Debug.LastIndent;
 
             string regenerative = LowerCase ? Grammar.MakeLowerCase(REGENERATIVE) : Grammar.MakeTitleCase(REGENERATIVE);
             string nanobots = LowerCase ? Grammar.MakeLowerCase(NANOBOTS) : Grammar.MakeTitleCase(NANOBOTS);
-            Statistic Hitpoints = Item.GetStat("Hitpoints");
 
-            int remainingHP = Hitpoints.Value;
-            int maxHP = Hitpoints.BaseValue;
-            float percentHP = (float)remainingHP / (float)maxHP;
-            int breakPoint = (int)Math.Floor(regenerative.Length * percentHP);
+            string output = $"{(regenerative).Color("regenerative")} {(nanobots).Color("nanobots")}";
 
-            Debug.Entry(4, $"{remainingHP}/{maxHP} = {percentHP}; {nameof(breakPoint)}: {breakPoint}", 
-                Indent: indent + 1, Toggle: getDoDebug(nameof(GetDynamicModName)));
+            Statistic Hitpoints = Item?.GetStat("Hitpoints");
 
-            if (breakPoint < regenerative.Length - 1)
+            if (Item  != null && Hitpoints != null)
             {
-                int brightPoint = Math.Max(0, breakPoint - 1);
-                int dullPoint = Math.Max(1, Math.Min(breakPoint, regenerative.Length - 1));
-                int whitePoint = brightPoint;
+                int remainingHP = Hitpoints.Value;
+                int maxHP = Hitpoints.BaseValue;
+                float percentHP = (float)remainingHP / (float)maxHP;
+                int breakPoint = (int)Math.Floor(regenerative.Length * percentHP);
 
-                Debug.Entry(4, $"{nameof(brightPoint)}: {brightPoint}",
-                    Indent: indent + 2, Toggle: getDoDebug(nameof(GetDynamicModName)));
-                Debug.Entry(4, $"{nameof(dullPoint)}: {dullPoint}", 
-                    Indent: indent + 2, Toggle: getDoDebug(nameof(GetDynamicModName)));
-                Debug.Entry(4, $"{nameof(whitePoint)}: {whitePoint}", 
-                    Indent: indent + 2, Toggle: getDoDebug(nameof(GetDynamicModName)));
+                Debug.Entry(4, $"Item: {Item?.DebugName ?? NULL} - {remainingHP}/{maxHP} = {percentHP}; {nameof(breakPoint)}: {breakPoint}",
+                    Indent: indent + 1, Toggle: getDoDebug(nameof(GetDynamicModName)));
 
-                string regenBright = brightPoint > 0 ? regenerative[..brightPoint].Color("regenerating") : "";
-                string regenDull = regenerative[dullPoint..].Color("greygoo");
-                string regenWhite = regenerative.Substring(whitePoint, 1).Color("Y");
+                if (breakPoint < regenerative.Length - 1 || Hitpoints.Penalty != 0)
+                {
+                    int brightPoint = Math.Max(0, breakPoint - 1);
+                    int whitePoint = brightPoint;
+                    int dullPoint = Math.Max(1, Math.Min(whitePoint + 1, regenerative.Length - 1));
 
-                regenerative = regenBright + regenWhite + regenDull;
-                nanobots = nanobots.Color("greygoo");
-            }
-            else
-            {
-                regenerative = regenerative.Color("regenerative");
-                nanobots = nanobots.Color("nanobots");
+                    Debug.Entry(4, $"{nameof(brightPoint)}: {brightPoint}",
+                        Indent: indent + 2, Toggle: getDoDebug(nameof(GetDynamicModName)));
+                    Debug.Entry(4, $"{nameof(whitePoint)}: {whitePoint}",
+                        Indent: indent + 2, Toggle: getDoDebug(nameof(GetDynamicModName)));
+                    Debug.Entry(4, $"{nameof(dullPoint)}: {dullPoint}",
+                        Indent: indent + 2, Toggle: getDoDebug(nameof(GetDynamicModName)));
+
+                    string regenBright = brightPoint > 0 ? regenerative[..brightPoint] : "";
+                    if (!regenBright.IsNullOrEmpty())
+                    {
+                        regenBright = regenBright.Color("regenerating");
+                    }
+                    string regenWhite = regenerative.Substring(whitePoint, 1);
+                    if (!regenWhite.IsNullOrEmpty())
+                    {
+                        regenWhite = regenWhite.Color("Y");
+                    }
+                    string regenDull = regenerative[dullPoint..];
+
+                    Debug.Entry(4, $"{nameof(regenBright)}", $"{regenBright}",
+                        Indent: indent + 2, Toggle: getDoDebug(nameof(GetDynamicModName)));
+                    Debug.Entry(4, $"{nameof(regenWhite)}", $"{regenWhite}",
+                        Indent: indent + 2, Toggle: getDoDebug(nameof(GetDynamicModName)));
+                    Debug.Entry(4, $"{nameof(regenDull)}", $"{(regenDull).Color("greygoo")}",
+                        Indent: indent + 2, Toggle: getDoDebug(nameof(GetDynamicModName)));
+
+                    output = regenBright + regenWhite + (regenDull + " " + nanobots).Color("greygoo");
+                }
             }
             Debug.LastIndent = indent;
-            return $"{regenerative} {nanobots}";
+            return output;
         }
         public string GetDynamicModName(bool LowerCase = false)
         {
+            Debug.Entry(4, $"{nameof(Mod_UD_RegenNanobots)}.{nameof(GetDynamicModName)} (instance)",
+                Indent: Debug.LastIndent, Toggle: getDoDebug('x'));
+
             return GetDynamicModName(ParentObject, Tier, LowerCase);
         }
 
         public override void Attach()
         {
+            Debug.Entry(4, $"{nameof(Mod_UD_RegenNanobots)}.{nameof(Attach)}",
+                Indent: Debug.LastIndent, Toggle: getDoDebug('x'));
+
             ApplyEquipmentFrameColors();
             base.Attach();
         }
@@ -248,7 +297,7 @@ namespace XRL.World.Parts
                 $"{nameof(Mod_UD_RegenNanobots)}." +
                 $"{nameof(ApplyModification)}(" +
                 $"{Object?.DebugName ?? NULL})",
-                Indent: Debug.LastIndent, Toggle: doDebug);
+                Indent: Debug.LastIndent, Toggle: getDoDebug('x'));
 
             if (ChargeUse > 0)
             {
@@ -258,7 +307,8 @@ namespace XRL.World.Parts
                 }
             }
             IncreaseDifficultyAndComplexity(3, 2);
-            ApplyEquipmentFrameColors();
+            TierConfigure();
+            base.ApplyModification(Object);
         }
         public bool ApplyEquipmentFrameColors()
         {
@@ -266,7 +316,7 @@ namespace XRL.World.Parts
                 $"{nameof(Mod_UD_RegenNanobots)}." +
                 $"{nameof(ApplyEquipmentFrameColors)}(" +
                 $"{ParentObject?.DebugName ?? NULL})",
-                Indent: Debug.LastIndent, Toggle: doDebug);
+                Indent: Debug.LastIndent, Toggle: getDoDebug('x'));
 
             if (ParentObject != null && !ParentObject.HasTagOrProperty("EquipmentFrameColors"))
             {
@@ -277,6 +327,9 @@ namespace XRL.World.Parts
 
         public int GetRegenChargeUse()
         {
+            Debug.Entry(4, $"{nameof(Mod_UD_RegenNanobots)}.{nameof(GetRegenChargeUse)}",
+                Indent: Debug.LastIndent, Toggle: getDoDebug('x'));
+
             if (Hitpoints == null)
             {
                 return 0;
@@ -286,6 +339,9 @@ namespace XRL.World.Parts
 
         public int GetRestoreChargeUse()
         {
+            Debug.Entry(4, $"{nameof(Mod_UD_RegenNanobots)}.{nameof(GetRestoreChargeUse)}",
+                Indent: Debug.LastIndent, Toggle: getDoDebug('x'));
+
             if (Hitpoints == null)
             {
                 return 0;
@@ -295,6 +351,9 @@ namespace XRL.World.Parts
 
         public bool HaveChargeToRegen(int LessAmount = 0)
         {
+            Debug.Entry(4, $"{nameof(Mod_UD_RegenNanobots)}.{nameof(HaveChargeToRegen)}",
+                Indent: Debug.LastIndent, Toggle: getDoDebug('x'));
+
             if (ParentObject != null && Hitpoints != null && GetRegenChargeUse() > 0)
             {
                 return GetRegenChargeUse() < (ParentObject.QueryCharge() - LessAmount);
@@ -303,6 +362,9 @@ namespace XRL.World.Parts
         }
         public bool HaveChargeToRestore(int LessAmount = 0)
         {
+            Debug.Entry(4, $"{nameof(Mod_UD_RegenNanobots)}.{nameof(HaveChargeToRestore)}",
+                Indent: Debug.LastIndent, Toggle: getDoDebug('x'));
+
             if (ParentObject != null && Hitpoints != null && GetRestoreChargeUse() > 0)
             {
                 return GetRestoreChargeUse() < (ParentObject.QueryCharge() - LessAmount);
@@ -312,6 +374,9 @@ namespace XRL.World.Parts
 
         public static int GetRegenAmount(Statistic Hitpoints, float RegenFactor, bool Max = false)
         {
+            Debug.Entry(4, $"{nameof(Mod_UD_RegenNanobots)}.{nameof(GetRegenAmount)} (static)",
+                Indent: Debug.LastIndent, Toggle: getDoDebug('x'));
+
             if (Hitpoints == null) 
                 return 0;
 
@@ -321,6 +386,9 @@ namespace XRL.World.Parts
         }
         public int GetRegenAmount(bool Max = false)
         {
+            Debug.Entry(4, $"{nameof(Mod_UD_RegenNanobots)}.{nameof(GetRegenAmount)} (instance)",
+                Indent: Debug.LastIndent, Toggle: getDoDebug('x'));
+
             return GetRegenAmount(Hitpoints, RegenFactor, Max);
         }
 
@@ -329,12 +397,13 @@ namespace XRL.World.Parts
             int indent = Debug.LastIndent;
             Debug.Entry(4, 
                 $"* {nameof(Regenerate)}(out int RegenAmount)",
-                Indent: indent, Toggle: doDebug);
+                Indent: indent, Toggle: getDoDebug());
 
             RegenAmount = 0;
             bool didRegen = false;
             if (ParentObject != null && IsReady(UseCharge: true) && isDamaged && !Regened && HaveChargeToRegen())
             {
+                CumulativeChargeUse += ChargeUse;
                 int regenMax = RegenDie.Max();
                 int regenMaxPadding = regenMax.ToString().Length;
                 int roll = RegenDie.Resolve();
@@ -344,24 +413,25 @@ namespace XRL.World.Parts
                 if (byChance && RegenAmount > 0)
                 {
                     string equipped = Equipper != null ? "equipped " : "";
-                    string message = $"=object.T's= {equipped}{ParentObject.BaseDisplayName}'s {Grammar.MakeLowerCase(MOD_NAME_COLORED)} =verb:regenerate= {RegenAmount} HP!";
+                    string message = $"=object.T's= {equipped}{ParentObject.BaseDisplayName}'s {GetDynamicModName(LowerCase: true)} =verb:regenerate= {RegenAmount} HP!";
                     message = GameText.VariableReplace(message, Subject: ParentObject, Object: Holder);
 
                     Debug.Entry(4,
                         $"({rollString}/{regenMax})" +
                         $" {message}",
-                        Indent: indent + 1, Toggle: doDebug);
+                        Indent: indent + 1, Toggle: getDoDebug());
 
                     didRegen = ParentObject.Heal(RegenAmount) > 0;
                     if (didRegen)
                     {
                         ParentObject.UseCharge(GetRegenChargeUse());
+                        CumulativeChargeUse += GetRegenChargeUse();
 
                         CumulativeRegen += RegenAmount;
 
                         AddPlayerMessage(message);
 
-                        string fullyRegenMessage = $"=object.T's= {equipped}{ParentObject.BaseDisplayName}'s {Grammar.MakeLowerCase(MOD_NAME_COLORED)} have regenerated {ParentObject.it} fully!";
+                        string fullyRegenMessage = $"=object.T's= {equipped}{ParentObject.BaseDisplayName}'s {GetDynamicModName(LowerCase: true)} have regenerated {ParentObject.it} fully!";
 
                         if (!isDamaged)
                         {
@@ -380,9 +450,9 @@ namespace XRL.World.Parts
                 {
                     Debug.Entry(4, 
                         $"({rollString}/{regenMax})" +
-                        $" {ParentObject?.DebugName ?? NULL}' {Grammar.MakeLowerCase(MOD_NAME_COLORED)}" +
+                        $" {ParentObject?.DebugName ?? NULL}' {GetDynamicModName(LowerCase: true)}" +
                         $" remained innactive!", 
-                        Indent: indent + 1, Toggle: doDebug);
+                        Indent: indent + 1, Toggle: getDoDebug());
                 }
             }
             Regened = true;
@@ -393,6 +463,9 @@ namespace XRL.World.Parts
         }
         public bool Regenerate()
         {
+            Debug.Entry(4, $"{nameof(Mod_UD_RegenNanobots)}.{nameof(Regenerate)}()",
+                Indent: Debug.LastIndent, Toggle: getDoDebug('x'));
+
             return Regenerate(out _);
         }
 
@@ -401,12 +474,13 @@ namespace XRL.World.Parts
             int indent = Debug.LastIndent;
             Debug.Entry(4, 
                 $"* {nameof(Restore)}(out string Condition)",
-                Indent: indent, Toggle: doDebug);
+                Indent: indent, Toggle: getDoDebug());
 
             Condition = null;
             bool didRestore = false;
             if (ParentObject != null && IsReady(UseCharge: true) && wantsRestore && HaveChargeToRestore())
             {
+                CumulativeChargeUse += ChargeUse;
                 int regenMax = RestoreDie.Max();
                 int regenMaxPadding = regenMax.ToString().Length;
                 int roll = RestoreDie.Resolve();
@@ -421,7 +495,7 @@ namespace XRL.World.Parts
                     Broken busted = ParentObject?.GetEffect<Broken>();
                     Condition = shattered?.DisplayName ?? rusted?.DisplayName ?? busted?.DisplayName;
 
-                    string message = $"=object.T's= {equipped}{ParentObject?.ShortDisplayNameWithoutTitlesStripped}'s {Grammar.MakeLowerCase(MOD_NAME_COLORED)} restored {ParentObject.it} from being {Condition}!";
+                    string message = $"=object.T's= {equipped}{ParentObject?.ShortDisplayNameWithoutTitlesStripped}'s {GetDynamicModName(LowerCase: true)} restored {ParentObject.it} from being {Condition}!";
 
                     message = GameText.VariableReplace(message, Subject: ParentObject, Object: Holder);
 
@@ -432,14 +506,15 @@ namespace XRL.World.Parts
                     Debug.Entry(4,
                         $"({rollString}/{regenMax})" +
                         $" {message}",
-                        Indent: indent + 1, Toggle: doDebug
-                        );
+                        Indent: indent + 1, Toggle: getDoDebug());
 
                     didRestore = !wantsRestore;
                     if (didRestore)
                     {
-                        ParentObject.UseCharge(GetRegenChargeUse());
+                        ParentObject.UseCharge(GetRestoreChargeUse());
+                        CumulativeChargeUse += GetRestoreChargeUse();
                         TimesRestored++;
+
                         if (Holder.IsPlayer())
                         {
                             Popup.Show(GameText.VariableReplace(message, Subject: ParentObject, Object: Holder));
@@ -454,9 +529,9 @@ namespace XRL.World.Parts
                 {
                     Debug.Entry(4, 
                         $"({rollString}/{regenMax})" +
-                        $" {ParentObject?.DebugName ?? NULL}' {Grammar.MakeLowerCase(MOD_NAME_COLORED)}" +
+                        $" {ParentObject?.DebugName ?? NULL}' {GetDynamicModName(LowerCase: true)}" +
                         $" remained innactive!", 
-                        Indent: indent + 1, Toggle: doDebug);
+                        Indent: indent + 1, Toggle: getDoDebug());
                 }
             }
 
@@ -466,20 +541,21 @@ namespace XRL.World.Parts
         }
         public bool Restore()
         {
+            Debug.Entry(4, $"{nameof(Mod_UD_RegenNanobots)}.{nameof(Restore)}()",
+                Indent: Debug.LastIndent, Toggle: getDoDebug('x'));
+
             return Restore(out _);
         }
 
         public override bool WantTurnTick()
         {
-            Debug.Entry(4,
-                $"{nameof(Mod_UD_RegenNanobots)}." +
-                $"{nameof(WantTurnTick)}()",
-                Indent: Debug.LastIndent, Toggle: doDebug);
-
             return true;
         }
         public override void TurnTick(long TimeTick, int Amount)
         {
+            Debug.Entry(4, $"{nameof(Mod_UD_RegenNanobots)}.{nameof(TurnTick)}()",
+                Indent: Debug.LastIndent, Toggle: getDoDebug('x'));
+
             bool turnsOverride = TimeTick - StoredTimeTick > 1;
 
             if (ParentObject != null && Holder != null && Holder.CurrentZone == The.ActiveZone && !ParentObject.IsInGraveyard())
@@ -487,7 +563,8 @@ namespace XRL.World.Parts
                 Debug.Entry(4,
                     $"@ {nameof(Mod_UD_RegenNanobots)}."
                     + $"{nameof(TurnTick)}"
-                    + $"(long TimeTick: {TimeTick}, int Amount: {Amount})",
+                    + $"(long TimeTick: {TimeTick}, int Amount: {Amount}) " 
+                    + $"Item: {ParentObject?.DebugName ?? NULL}",
                     Indent: 0, Toggle: doDebug);
 
                 Debug.CheckYeh(4, $"In Zone", Indent: 1, Toggle: doDebug);
@@ -515,6 +592,9 @@ namespace XRL.World.Parts
         };
         public override void Register(GameObject Object, IEventRegistrar Registrar)
         {
+            Debug.Entry(4, $"{nameof(Mod_UD_RegenNanobots)}.{nameof(Register)}()",
+                Indent: Debug.LastIndent, Toggle: getDoDebug('x'));
+
             if (false && !StringyRegenEventIDs.IsNullOrEmpty())
             {
                 foreach (string eventID in StringyRegenEventIDs)
@@ -522,58 +602,68 @@ namespace XRL.World.Parts
                     Registrar.Register(eventID);
                 }
             }
+            Registrar.Register(ModificationAppliedEvent.ID, EventOrder.LATE);
             base.Register(Object, Registrar);
         }
         public override bool WantEvent(int ID, int cascade)
         {
             return base.WantEvent(ID, cascade)
-                || ID == ModificationAppliedEvent.ID
                 || ID == GetItemElementsEvent.ID
                 || ID == GetDisplayNameEvent.ID
                 || ID == GetShortDescriptionEvent.ID;
         }
         public override bool HandleEvent(ModificationAppliedEvent E)
         {
-            if (E.Object == ParentObject && E.Object.TryGetPart(out EnergyCell energyCell))
+            Debug.Entry(4, $"{nameof(Mod_UD_RegenNanobots)}.{nameof(HandleEvent)}({nameof(ModificationAppliedEvent)})",
+                Indent: Debug.LastIndent, Toggle: getDoDebug('x'));
+
+            if (E.Object == ParentObject)
             {
                 TierConfigure();
-                int baseChargeRate = (int)(ChargeUse * 1.5);
-                int combinedChargeRate = baseChargeRate;
+                if (E.Object.TryGetPart(out EnergyCell energyCell))
+                {
+                    int baseChargeRate = (int)(ChargeUse * 1.5);
+                    int combinedChargeRate = baseChargeRate;
 
-                if (!E.Object.TryGetPart(out ZeroPointEnergyCollector zPECollector))
-                {
-                    zPECollector = E.Object.RequirePart<ZeroPointEnergyCollector>();
-                }
-                zPECollector.ChargeRate = baseChargeRate;
-                zPECollector.World = "*";
-                zPECollector.IsBootSensitive = false;
-                zPECollector.IsPowerSwitchSensitive = false;
-                zPECollector.IsBreakageSensitive = false;
-                zPECollector.IsRustSensitive = false;
-                zPECollector.WorksOnSelf = true;
+                    if (!E.Object.TryGetPart(out ZeroPointEnergyCollector zPECollector))
+                    {
+                        zPECollector = E.Object.RequirePart<ZeroPointEnergyCollector>();
+                    }
+                    zPECollector.ChargeRate = baseChargeRate;
+                    zPECollector.World = "*";
+                    zPECollector.IsBootSensitive = false;
+                    zPECollector.IsPowerSwitchSensitive = false;
+                    zPECollector.IsBreakageSensitive = false;
+                    zPECollector.IsRustSensitive = false;
+                    zPECollector.WorksOnSelf = true;
 
-                if (E.Object.TryGetPart(out BroadcastPowerReceiver broadcastPowerReceiver))
-                {
-                    combinedChargeRate += broadcastPowerReceiver.ChargeRate;
-                }
-                if (E.Object.TryGetPart(out SolarArray solarArray))
-                {
-                    combinedChargeRate += solarArray.ChargeRate;
-                }
-                IntegralRecharger integralRecharger = E.Object.RequirePart<IntegralRecharger>();
-                if (integralRecharger.ChargeRate != 0 && integralRecharger.ChargeRate < combinedChargeRate)
-                {
-                    integralRecharger.ChargeRate = combinedChargeRate;
-                }
-                if (energyCell.ChargeRate < combinedChargeRate)
-                {
-                    energyCell.ChargeRate = combinedChargeRate;
+                    if (E.Object.TryGetPart(out BroadcastPowerReceiver broadcastPowerReceiver))
+                    {
+                        combinedChargeRate += broadcastPowerReceiver.ChargeRate;
+                    }
+                    if (E.Object.TryGetPart(out SolarArray solarArray))
+                    {
+                        combinedChargeRate += solarArray.ChargeRate;
+                    }
+
+                    IntegralRecharger integralRecharger = E.Object.RequirePart<IntegralRecharger>();
+                    if (integralRecharger.ChargeRate < combinedChargeRate)
+                    {
+                        integralRecharger.ChargeRate = combinedChargeRate;
+                    }
+                    if (energyCell.ChargeRate < combinedChargeRate)
+                    {
+                        energyCell.ChargeRate = combinedChargeRate;
+                    }
                 }
             }
             return base.HandleEvent(E);
         }
         public override bool HandleEvent(GetItemElementsEvent E)
         {
+            Debug.Entry(4, $"{nameof(Mod_UD_RegenNanobots)}.{nameof(HandleEvent)}({nameof(GetItemElementsEvent)})",
+                Indent: Debug.LastIndent, Toggle: getDoDebug('x'));
+
             if (E.IsRelevantObject(ParentObject))
             {
                 E.Add("circuitry", 10);
@@ -583,6 +673,9 @@ namespace XRL.World.Parts
         }
         public override bool HandleEvent(GetDisplayNameEvent E)
         {
+            Debug.Entry(4, $"{nameof(Mod_UD_RegenNanobots)}.{nameof(HandleEvent)}({nameof(GetDisplayNameEvent)})",
+                Indent: Debug.LastIndent, Toggle: getDoDebug('x'));
+
             if (E.Understood() && !E.Object.HasProperName)
             {
                 E.AddWithClause(GetDynamicModName(LowerCase: true));
@@ -591,9 +684,12 @@ namespace XRL.World.Parts
         }
         public override bool HandleEvent(GetShortDescriptionEvent E)
         {
+            Debug.Entry(4, $"{nameof(Mod_UD_RegenNanobots)}.{nameof(HandleEvent)}({nameof(GetShortDescriptionEvent)})",
+                Indent: Debug.LastIndent, Toggle: getDoDebug('x'));
+
             E.Postfix.AppendRules(GetInstanceDescription());
 
-            if (DebugDuctapeModDescriptions)
+            if (DebugRegenNanobotsModDescriptions)
             {
                 StringBuilder SB = Event.NewStringBuilder();
 
@@ -647,10 +743,34 @@ namespace XRL.World.Parts
                     .Append(")")
                     .Append($"){HONLY}Charge Figures");
                 SB.AppendLine();
+                if (ParentObject.TryGetPart(out SolarArray solarArray))
+                {
+                    SB.Append(VONLY).Append(VANDR).Append("(").AppendColored("W", $"{solarArray.ChargeRate}")
+                        .Append($"){HONLY}{nameof(SolarArray)}");
+                    SB.AppendLine();
+                }
+                if (ParentObject.TryGetPart(out BroadcastPowerReceiver broadcastPowerReceiver))
+                {
+                    SB.Append(VONLY).Append(VANDR).Append("(").AppendColored("W", $"{broadcastPowerReceiver.ChargeRate}")
+                        .Append($"){HONLY}{nameof(BroadcastPowerReceiver)}");
+                    SB.AppendLine();
+                }
                 if (ParentObject.TryGetPart(out ZeroPointEnergyCollector zPECollector))
                 {
                     SB.Append(VONLY).Append(VANDR).Append("(").AppendColored("W", $"{zPECollector.ChargeRate}")
                         .Append($"){HONLY}{nameof(ZeroPointEnergyCollector)}");
+                    SB.AppendLine();
+                }
+                if (ParentObject.TryGetPart(out EnergyCell energyCell))
+                {
+                    SB.Append(VONLY).Append(VANDR).Append("(").AppendColored("W", $"{energyCell.ChargeRate}")
+                        .Append($"){HONLY}{nameof(EnergyCell)}");
+                    SB.AppendLine();
+                }
+                if (ParentObject.TryGetPart(out IntegralRecharger integralRecharger))
+                {
+                    SB.Append(VONLY).Append(VANDR).Append("(").AppendColored("W", $"{integralRecharger.ChargeRate}")
+                        .Append($"){HONLY}{nameof(IntegralRecharger)}");
                     SB.AppendLine();
                 }
                 SB.Append(VONLY).Append(VANDR).Append("(").AppendColored("W", $"{ChargeUse}")
@@ -712,6 +832,9 @@ namespace XRL.World.Parts
         }
         public override bool FireEvent(Event E)
         {
+            Debug.Entry(4, $"{nameof(Mod_UD_RegenNanobots)}.{nameof(FireEvent)}({nameof(Event)} E.ID: {E.ID})",
+                Indent: Debug.LastIndent, Toggle: getDoDebug('x'));
+
             if (false && !StringyRegenEventIDs.IsNullOrEmpty() && StringyRegenEventIDs.Contains(E.ID))
             {
                 

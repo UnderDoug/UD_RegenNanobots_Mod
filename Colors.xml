@@ -4,6 +4,6 @@
     <shader Name="regenerative" Type="alternation" Colors="r-r-R-R-W-W-W-g-g-G-G-G" ShowInPicker="true" />
     <shader Name="regenerating" Type="sequence" Colors="r-r-R-R-W-W-W-g-g-G-G-G" ShowInPicker="true" />
     <shader Name="nanobots" Type="alternation" Colors="K-K-K-K-c-c-C-C" ShowInPicker="true" />
-    <shader Name="greygoo" Type="distribution" Colors="c-y-K" ShowInPicker="false" />
+    <shader Name="greygoo" Type="distribution" Colors="c-c-y-y-K-K-K" ShowInPicker="false" />
   </shaders>
 </colors>
