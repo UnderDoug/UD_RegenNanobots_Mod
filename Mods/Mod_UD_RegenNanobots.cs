@@ -478,7 +478,7 @@ namespace XRL.World.Parts
 
             Condition = null;
             bool didRestore = false;
-            if (ParentObject != null && IsReady(UseCharge: true) && wantsRestore && HaveChargeToRestore())
+            if (ParentObject != null && wantsRestore && IsReady(UseCharge: true) && HaveChargeToRestore())
             {
                 CumulativeChargeUse += ChargeUse;
                 int regenMax = RestoreDie.Max();
@@ -495,7 +495,7 @@ namespace XRL.World.Parts
                     Broken busted = ParentObject?.GetEffect<Broken>();
                     Condition = shattered?.DisplayName ?? rusted?.DisplayName ?? busted?.DisplayName;
 
-                    string message = $"=object.T's= {equipped}{ParentObject?.ShortDisplayNameWithoutTitlesStripped}'s {GetDynamicModName(LowerCase: true)} restored {ParentObject.it} from being {Condition}!";
+                    string message = $"=object.T's= {equipped}{ParentObject.BaseDisplayName}'s {GetDynamicModName(LowerCase: true)} restored {ParentObject.it} from being {Condition}!";
 
                     message = GameText.VariableReplace(message, Subject: ParentObject, Object: Holder);
 
@@ -582,7 +582,7 @@ namespace XRL.World.Parts
         }
         private List<string> StringyRegenEventIDs => new()
         {
-            // "CommandFireMissile",
+            "UD_JostleObjectEvent",
             // "BeforeThrown",
         };
         private Dictionary<Func<bool>, int> EquipperRegenEventIDs => new()
@@ -603,6 +603,7 @@ namespace XRL.World.Parts
                 }
             }
             Registrar.Register(ModificationAppliedEvent.ID, EventOrder.LATE);
+            Registrar.Register(LateBeforeApplyDamageEvent.ID, EventOrder.EXTREMELY_LATE);
             base.Register(Object, Registrar);
         }
         public override bool WantEvent(int ID, int cascade)
@@ -830,14 +831,57 @@ namespace XRL.World.Parts
 
             return base.HandleEvent(E);
         }
+        public override bool HandleEvent(LateBeforeApplyDamageEvent E)
+        {
+            int indent = Debug.LastIndent;
+            Debug.Entry(4,
+                $"@ {nameof(Mod_UD_RegenNanobots)}."
+                + $"{nameof(HandleEvent)}({nameof(LateBeforeApplyDamageEvent)} E)",
+                Indent: indent, Toggle: getDoDebug());
+
+            if (E.Object == ParentObject && E.Damage.Attributes.Contains("Jostle") && isBusted && IsReady(UseCharge: true))
+            {
+                string equipped = Equipper != null ? "equipped " : "";
+                string jostled = "{{utilitape|jostled}}";
+                string message = $"=object.T's= {equipped}{ParentObject?.BaseDisplayName}'s {GetDynamicModName(LowerCase: true)} kept {ParentObject.it} from taking {E.Damage.Amount} damage after being {jostled}!";
+
+                message = GameText.VariableReplace(message, Subject: ParentObject, Object: Holder);
+
+                if (Holder.IsPlayer())
+                {
+                    Popup.Show(message);
+                }
+                else
+                {
+                    AddPlayerMessage(message);
+                }
+
+                Debug.Entry(4, message, Indent: indent + 1, Toggle: getDoDebug());
+
+                E.Damage = new(0);
+
+                Debug.LastIndent = indent;
+                return false;
+            }
+            return base.HandleEvent(E);
+        }
         public override bool FireEvent(Event E)
         {
-            Debug.Entry(4, $"{nameof(Mod_UD_RegenNanobots)}.{nameof(FireEvent)}({nameof(Event)} E.ID: {E.ID})",
-                Indent: Debug.LastIndent, Toggle: getDoDebug('x'));
-
-            if (false && !StringyRegenEventIDs.IsNullOrEmpty() && StringyRegenEventIDs.Contains(E.ID))
+            if (!StringyRegenEventIDs.IsNullOrEmpty() && StringyRegenEventIDs.Contains(E.ID))
             {
-                
+                int indent = Debug.LastIndent;
+                Debug.Entry(4, 
+                    $"@ {nameof(Mod_UD_RegenNanobots)}." 
+                    + $"{nameof(FireEvent)}({nameof(Event)} " 
+                    + $"E.ID: {E.ID})",
+                    Indent: indent, Toggle: getDoDebug('x'));
+
+                if (E.ID == "UD_JostleObjectEvent" && isBusted && IsReady(UseCharge: true))
+                {
+                    Debug.Entry(4, $"Used charge to while busted and jostled", Indent: indent + 1, Toggle: getDoDebug());
+                }
+
+                Debug.LastIndent = indent;
             }
             return base.FireEvent(E);
         }
