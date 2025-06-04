@@ -595,7 +595,7 @@ namespace XRL.World.Parts
             Debug.Entry(4, $"{nameof(Mod_UD_RegenNanobots)}.{nameof(Register)}()",
                 Indent: Debug.LastIndent, Toggle: getDoDebug('x'));
 
-            if (false && !StringyRegenEventIDs.IsNullOrEmpty())
+            if (!StringyRegenEventIDs.IsNullOrEmpty())
             {
                 foreach (string eventID in StringyRegenEventIDs)
                 {
@@ -839,11 +839,11 @@ namespace XRL.World.Parts
                 + $"{nameof(HandleEvent)}({nameof(LateBeforeApplyDamageEvent)} E)",
                 Indent: indent, Toggle: getDoDebug());
 
-            if (E.Object == ParentObject && E.Damage.Attributes.Contains("Jostle") && isBusted && IsReady(UseCharge: true))
+            if (E.Object != null && E.Object == ParentObject && E.Damage.Attributes.Contains("Jostle") && isBusted && IsReady(UseCharge: true))
             {
                 string equipped = Equipper != null ? "equipped " : "";
                 string jostled = "{{utilitape|jostled}}";
-                string message = $"=object.T's= {equipped}{ParentObject?.BaseDisplayName}'s {GetDynamicModName(LowerCase: true)} kept {ParentObject.it} from taking {E.Damage.Amount} damage after being {jostled}!";
+                string message = $"=object.T's= {equipped}{ParentObject.BaseDisplayName}'s {GetDynamicModName(LowerCase: true)} kept {ParentObject.it} from taking {E.Damage.Amount} damage after being {jostled}!";
 
                 message = GameText.VariableReplace(message, Subject: ParentObject, Object: Holder);
 
@@ -878,7 +878,7 @@ namespace XRL.World.Parts
 
                 if (E.ID == "UD_JostleObjectEvent" && isBusted && IsReady(UseCharge: true))
                 {
-                    Debug.Entry(4, $"Used charge to while busted and jostled", Indent: indent + 1, Toggle: getDoDebug());
+                    Debug.Entry(4, $"Used charge while busted and jostled", Indent: indent + 1, Toggle: getDoDebug());
                 }
 
                 Debug.LastIndent = indent;
