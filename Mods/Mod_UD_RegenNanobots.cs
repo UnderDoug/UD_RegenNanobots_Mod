@@ -431,7 +431,7 @@ namespace XRL.World.Parts
 
                         AddPlayerMessage(message);
 
-                        string fullyRegenMessage = $"=object.T's= {equipped}{ParentObject.BaseDisplayName}'s {GetDynamicModName(LowerCase: true)} have regenerated {ParentObject.it} fully!";
+                        string fullyRegenMessage = $"=object.T's= {equipped}{ParentObject.BaseDisplayName}'s {GetDynamicModName(LowerCase: true)} have regenerated =subject.objective= fully!";
 
                         if (!isDamaged)
                         {
@@ -495,7 +495,7 @@ namespace XRL.World.Parts
                     Broken busted = ParentObject?.GetEffect<Broken>();
                     Condition = shattered?.DisplayName ?? rusted?.DisplayName ?? busted?.DisplayName;
 
-                    string message = $"=object.T's= {equipped}{ParentObject.BaseDisplayName}'s {GetDynamicModName(LowerCase: true)} restored {ParentObject.it} from being {Condition}!";
+                    string message = $"=object.T's= {equipped}{ParentObject.BaseDisplayName}'s {GetDynamicModName(LowerCase: true)} restored =subject.objective= from being {Condition}!";
 
                     message = GameText.VariableReplace(message, Subject: ParentObject, Object: Holder);
 
@@ -833,17 +833,17 @@ namespace XRL.World.Parts
         }
         public override bool HandleEvent(LateBeforeApplyDamageEvent E)
         {
-            int indent = Debug.LastIndent;
-            Debug.Entry(4,
-                $"@ {nameof(Mod_UD_RegenNanobots)}."
-                + $"{nameof(HandleEvent)}({nameof(LateBeforeApplyDamageEvent)} E)",
-                Indent: indent, Toggle: getDoDebug());
-
             if (E.Object != null && E.Object == ParentObject && E.Damage.Attributes.Contains("Jostle") && isBusted && IsReady(UseCharge: true))
             {
+                int indent = Debug.LastIndent;
+                Debug.Entry(4,
+                    $"@ {nameof(Mod_UD_RegenNanobots)}."
+                    + $"{nameof(HandleEvent)}({nameof(LateBeforeApplyDamageEvent)} E)",
+                    Indent: indent, Toggle: getDoDebug());
+
                 string equipped = Equipper != null ? "equipped " : "";
                 string jostled = "{{utilitape|jostled}}";
-                string message = $"=object.T's= {equipped}{ParentObject.BaseDisplayName}'s {GetDynamicModName(LowerCase: true)} kept {ParentObject.it} from taking {E.Damage.Amount} damage after being {jostled}!";
+                string message = $"=object.T's= {equipped}{ParentObject.BaseDisplayName}'s {GetDynamicModName(LowerCase: true)} kept =subject.objective= from taking {E.Damage.Amount} damage after being {jostled}!";
 
                 message = GameText.VariableReplace(message, Subject: ParentObject, Object: Holder);
 
