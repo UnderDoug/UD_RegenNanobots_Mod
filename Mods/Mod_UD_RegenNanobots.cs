@@ -2,20 +2,22 @@
 using System.Collections.Generic;
 using System.Text;
 
-using XRL.UI;
-using XRL.Rules;
 using XRL.Language;
+using XRL.Rules;
+using XRL.UI;
 using XRL.World;
+using XRL.World.Capabilities;
 using XRL.World.Effects;
 using XRL.World.Tinkering;
-using XRL.World.Capabilities;
 
 using UD_RegenNanobots_Mod;
+
 using static UD_RegenNanobots_Mod.Const;
 using static UD_RegenNanobots_Mod.Utils;
-
 using Debug = UD_RegenNanobots_Mod.Debug;
 using Options = UD_RegenNanobots_Mod.Options;
+
+using SerializeField = UnityEngine.SerializeField;
 
 namespace XRL.World.Parts
 {
@@ -80,6 +82,7 @@ namespace XRL.World.Parts
 
         public bool Regened = false;
 
+        [SerializeField]
         private double StoredTimeTick = 0;
 
         public int CumulativeChargeUse = 0;
@@ -151,7 +154,7 @@ namespace XRL.World.Parts
             Debug.Entry(4, $"{nameof(Mod_UD_RegenNanobots)}.{nameof(CalculateBaseChargeUse)} (static)", 
                 Indent: Debug.LastIndent, Toggle: getDoDebug('x'));
 
-            int multiplier = 1;
+            int multiplier = 5;
             multiplier += ObjectTechTier;
             multiplier += Complexity;
             return Tier * multiplier;
@@ -499,7 +502,7 @@ namespace XRL.World.Parts
 
                     message = GameText.VariableReplace(message, Subject: ParentObject, Object: Holder);
 
-                    int existingPenalty = Hitpoints.Penalty;
+                    int existingPenalty = Math.Min(Hitpoints.Penalty, (int)Math.Floor(Hitpoints.BaseValue * 0.75f));
                     RepairedEvent.Send(ParentObject, ParentObject, ParentObject);
                     Hitpoints.Penalty = existingPenalty;
 
