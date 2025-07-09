@@ -586,6 +586,7 @@ namespace XRL.World.Parts
         private List<string> StringyRegenEventIDs => new()
         {
             "UD_JostleObjectEvent",
+            "UD_GetJostleActivityEvent",
             // "BeforeThrown",
         };
         private Dictionary<Func<bool>, int> EquipperRegenEventIDs => new()
@@ -882,6 +883,20 @@ namespace XRL.World.Parts
                 if (E.ID == "UD_JostleObjectEvent" && isBusted && IsReady(UseCharge: true))
                 {
                     Debug.Entry(4, $"Used charge while busted and jostled", Indent: indent + 1, Toggle: getDoDebug());
+                }
+                if (E.ID == "UD_GetJostleActivityEvent" 
+                    && E.GetParameter("FromEvent") is MinEvent fromEvent
+                    && ParentObject.HasPart<EnergyCell>()
+                    && (fromEvent.GetType() == typeof(ChargeUsedEvent) || fromEvent.GetType() == typeof(UseChargeEvent)))
+                {
+                    if (fromEvent is ChargeUsedEvent chargeUsedEvent && chargeUsedEvent.Amount == GetRegenChargeUse()
+                        || fromEvent is UseChargeEvent useChargeEvent && useChargeEvent.Amount == GetRegenChargeUse())
+                    {
+                        E.SetParameter("Activity", 0);
+                        Debug.Entry(4, 
+                            $"Blocked {nameof(EnergyCell)} from being jostled when using its own charge to regenerate", 
+                            Indent: indent + 1, Toggle: getDoDebug());
+                    }
                 }
 
                 Debug.LastIndent = indent;
