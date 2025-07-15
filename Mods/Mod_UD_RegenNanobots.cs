@@ -80,11 +80,6 @@ namespace XRL.World.Parts
 
         public int TimesRestored = 0;
 
-        public bool Regened = false;
-
-        [SerializeField]
-        private double StoredTimeTick = 0;
-
         public int CumulativeChargeUse = 0;
 
         public bool isDamaged => ParentObject != null && ParentObject.isDamaged();
@@ -352,14 +347,14 @@ namespace XRL.World.Parts
             return CalculateBaseChargeUse() * Hitpoints.BaseValue;
         }
 
-        public bool HaveChargeToRegen(int LessAmount = 0)
+        public bool HaveChargeToRegen(int LessAmount = 0, int MultiplyBy = 1)
         {
             Debug.Entry(4, $"{nameof(Mod_UD_RegenNanobots)}.{nameof(HaveChargeToRegen)}",
                 Indent: Debug.LastIndent, Toggle: getDoDebug('x'));
 
             if (ParentObject != null && Hitpoints != null && GetRegenChargeUse() > 0)
             {
-                return GetRegenChargeUse() < (ParentObject.QueryCharge() - LessAmount);
+                return (GetRegenChargeUse() * Math.Max(1, MultiplyBy)) < (ParentObject.QueryCharge() - LessAmount);
             }
             return false;
         }
@@ -380,8 +375,10 @@ namespace XRL.World.Parts
             Debug.Entry(4, $"{nameof(Mod_UD_RegenNanobots)}.{nameof(GetRegenAmount)} (static)",
                 Indent: Debug.LastIndent, Toggle: getDoDebug('x'));
 
-            if (Hitpoints == null) 
+            if (Hitpoints == null)
+            {
                 return 0;
+            }
 
             int amount = Math.Max(1, (int)Math.Ceiling(Hitpoints.BaseValue * RegenFactor));
             amount = Max ? amount : Math.Min(Hitpoints.Penalty, amount);
@@ -404,14 +401,36 @@ namespace XRL.World.Parts
 
             RegenAmount = 0;
             bool didRegen = false;
-            if (ParentObject != null && IsReady(UseCharge: true) && isDamaged && !Regened && HaveChargeToRegen())
+
+            float hitpointPercent = (float)Hitpoints.Penalty / (float)Hitpoints.BaseValue * 100f;
+
+            int rolls = Math.Max(1, 4 - (int)Math.Floor(hitpointPercent / 25f));
+
+            if (ParentObject != null && HaveChargeToRegen(MultiplyBy: rolls) && IsReady(UseCharge: true, MultipleCharge: rolls) && isDamaged)
             {
-                CumulativeChargeUse += ChargeUse;
+                CumulativeChargeUse += (ChargeUse * rolls);
+
                 int regenMax = RegenDie.Max();
+                int roll = 0;
+                bool byChance = false;
+
+                Debug.Entry(4, $"Rolling with {rolls}x Advantage for whether to regen or not...",
+                    Indent: indent + 1, Toggle: getDoDebug());
+
+                for (int i = 0; i < rolls; i++)
+                {
+                    roll = RegenDie.Resolve();
+                    Debug.LoopItem(4, $"{i}] {nameof(roll)}: {roll}", Indent: indent + 1, Toggle: getDoDebug());
+                    if (!byChance)
+                    {
+                        Debug.CheckYeh(4, $"Ding!", Indent: indent + 2, Toggle: getDoDebug());
+                        byChance = roll == RegenDie.Max();
+                    }
+                }
+
                 int regenMaxPadding = regenMax.ToString().Length;
-                int roll = RegenDie.Resolve();
                 string rollString = roll.ToString().PadLeft(regenMaxPadding, ' ');
-                bool byChance = roll == RegenDie.Max();
+
                 RegenAmount = GetRegenAmount();
                 if (byChance && RegenAmount > 0)
                 {
@@ -458,7 +477,6 @@ namespace XRL.World.Parts
                         Indent: indent + 1, Toggle: getDoDebug());
                 }
             }
-            Regened = true;
 
             Debug.LastIndent = indent;
 
@@ -556,31 +574,7 @@ namespace XRL.World.Parts
         }
         public override void TurnTick(long TimeTick, int Amount)
         {
-            Debug.Entry(4, $"{nameof(Mod_UD_RegenNanobots)}.{nameof(TurnTick)}()",
-                Indent: Debug.LastIndent, Toggle: getDoDebug('x'));
-
-            bool turnsOverride = TimeTick - StoredTimeTick > 1;
-
-            if (ParentObject != null && Holder != null && Holder.CurrentZone == The.ActiveZone && !ParentObject.IsInGraveyard())
-            {
-                Debug.Entry(4,
-                    $"@ {nameof(Mod_UD_RegenNanobots)}."
-                    + $"{nameof(TurnTick)}"
-                    + $"(long TimeTick: {TimeTick}, int Amount: {Amount}) " 
-                    + $"Item: {ParentObject?.DebugName ?? NULL}",
-                    Indent: 0, Toggle: doDebug);
-
-                Debug.CheckYeh(4, $"In Zone", Indent: 1, Toggle: doDebug);
-                
-                if (Regened && turnsOverride)
-                {
-                    Debug.CheckYeh(4, $"Turns Overriden", Indent: 1, Toggle: doDebug);
-                    Regened = false;
-                    StoredTimeTick = TimeTick;
-                }
-                Restore();
-                Regenerate();
-            }
+            
             base.TurnTick(TimeTick, Amount);
         }
         private List<string> StringyRegenEventIDs => new()
@@ -599,6 +593,7 @@ namespace XRL.World.Parts
             Debug.Entry(4, $"{nameof(Mod_UD_RegenNanobots)}.{nameof(Register)}()",
                 Indent: Debug.LastIndent, Toggle: getDoDebug('x'));
 
+            Registrar.Register(EndTurnEvent.ID, EventOrder.EXTREMELY_EARLY);
             if (!StringyRegenEventIDs.IsNullOrEmpty())
             {
                 foreach (string eventID in StringyRegenEventIDs)
@@ -616,6 +611,22 @@ namespace XRL.World.Parts
                 || ID == GetItemElementsEvent.ID
                 || ID == GetDisplayNameEvent.ID
                 || ID == GetShortDescriptionEvent.ID;
+        }
+        public override bool HandleEvent(EndTurnEvent E)
+        {
+            if (ParentObject != null && Holder != null && Holder.CurrentZone == The.ActiveZone && !ParentObject.IsInGraveyard())
+            {
+                Debug.Entry(4,
+                    $"@ {nameof(Mod_UD_RegenNanobots)}."
+                    + $"{nameof(HandleEvent)}("
+                    + $"{nameof(EndTurnEvent)} E) "
+                    + $"Item: {ParentObject?.DebugName ?? NULL}",
+                    Indent: 0, Toggle: doDebug);
+
+                Restore();
+                Regenerate();
+            }
+            return base.HandleEvent(E);
         }
         public override bool HandleEvent(ModificationAppliedEvent E)
         {
@@ -724,9 +735,6 @@ namespace XRL.World.Parts
 
                 SB.AppendColored("W", $"State")
                     .AppendLine();
-                SB.Append(VANDR).Append($"[{Regened.YehNah(true)}]{HONLY}{nameof(Regened)}: ")
-                    .AppendColored("B", $"{Regened}");
-                SB.AppendLine();
                 SB.Append(VANDR).Append("(").AppendColored("o", $"{RegenDie}")
                     .Append($"){HONLY}{nameof(RegenDie)}");
                 SB.AppendLine();
@@ -795,18 +803,6 @@ namespace XRL.World.Parts
                 SB.AppendLine();
                 SB.Append(TANDR).Append("(").AppendColored("y", $"{equipmentFrame}")
                     .Append($"){HONLY}EquipmentFrameColors");
-                SB.AppendLine();
-
-                SB.AppendColored("W", $"TimeTick")
-                    .AppendLine();
-                SB.Append(VANDR).Append("(").AppendColored("y", $"{The.Game.TimeTicks}")
-                    .Append($"){HONLY}Current{nameof(The.Game.TimeTicks)}");
-                SB.AppendLine();
-                SB.Append(VANDR).Append("(").AppendColored("y", $"{StoredTimeTick}")
-                    .Append($"){HONLY}{nameof(StoredTimeTick)}");
-                SB.AppendLine();
-                SB.Append(TANDR).Append("(").AppendColored("y", $"{The.Game.TimeTicks - StoredTimeTick}")
-                    .Append($"){HONLY}Difference");
                 SB.AppendLine();
 
                 SB.AppendColored("W", $"Bools")
