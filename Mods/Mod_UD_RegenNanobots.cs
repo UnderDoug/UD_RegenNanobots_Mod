@@ -68,9 +68,9 @@ namespace XRL.World.Parts
 
         public static readonly string MOD_NAME_COLORED = "{{regenerative|" + REGENERATIVE + "}} {{nanobots|" + NANOBOTS + "}}";
 
-        public static DieRoll RegenDie = new($"1d30");
+        public static DieRoll RegenDie => new($"1d40");
 
-        public static DieRoll RestoreDie = new($"1d120");
+        public static DieRoll RestoreDie => new($"1d120");
 
         public int ObjectTechTier => ParentObject.GetTechTier();
 
@@ -81,6 +81,12 @@ namespace XRL.World.Parts
         public int TimesRestored = 0;
 
         public int CumulativeChargeUse = 0;
+
+        public float HitpointPercent => Hitpoints != null 
+            ? (float)(Hitpoints.BaseValue - Hitpoints.Penalty) / (float)Hitpoints.BaseValue * 100f 
+            : 0;
+
+        public int RegenRolls => Math.Max(1, 4 - (int)Math.Floor(HitpointPercent / 25f));
 
         public bool isDamaged => ParentObject != null && ParentObject.isDamaged();
         public bool isBusted => ParentObject != null && ParentObject.IsBroken();
@@ -190,11 +196,12 @@ namespace XRL.World.Parts
                 Mod_UD_RegenNanobots modRegenNanobots = new();
                 float regenFactor = modRegenNanobots.RegenFactor;
                 int regenAmount = GetRegenAmount(hitpoints, regenFactor, Max: true);
+                int regenRolls = modRegenNanobots.RegenRolls;
 
                 StringBuilder SB = Event.NewStringBuilder();
                 SB.Append(GetDynamicModName(Item, Tier)).Append(": ");
                 SB.Append("while powered, this item ");
-                SB.Append("has a ").Append(RegenDie.Min()).Append(" in ").Append(RegenDie.Max()).Append(" chance per turn to ");
+                SB.Append("has a ").Append(RegenDie.Min() * regenRolls).Append(" in ").Append(RegenDie.Max()).Append(" chance per turn to ");
                 SB.Append("regenerate ").Append(regenAmount).Append(" HP and ");
                 SB.Append("has a ").Append(RestoreDie.Min()).Append(" in ").Append(RestoreDie.Max()).Append(" chance per turn to ");
                 SB.Append("be restored from being rusted or broken. ");
@@ -396,40 +403,59 @@ namespace XRL.World.Parts
         {
             int indent = Debug.LastIndent;
             Debug.Entry(4, 
-                $"* {nameof(Regenerate)}(out int RegenAmount)",
+                $"* {nameof(Regenerate)}(out int {nameof(RegenAmount)})",
                 Indent: indent, Toggle: getDoDebug());
 
             RegenAmount = 0;
             bool didRegen = false;
 
-            float hitpointPercent = (float)Hitpoints.Penalty / (float)Hitpoints.BaseValue * 100f;
+            Debug.Entry(4, $"{nameof(HitpointPercent)}: {HitpointPercent}/25f = {(int)Math.Floor(HitpointPercent / 25f)}",
+                Indent: indent + 1, Toggle: getDoDebug());
 
-            int rolls = Math.Max(1, 4 - (int)Math.Floor(hitpointPercent / 25f));
+            Debug.Entry(4, $"{nameof(Hitpoints)}.{nameof(Hitpoints.BaseValue)}: {Hitpoints.BaseValue}",
+                Indent: indent + 1, Toggle: getDoDebug());
 
-            if (ParentObject != null && HaveChargeToRegen(MultiplyBy: rolls) && IsReady(UseCharge: true, MultipleCharge: rolls) && isDamaged)
+            Debug.Entry(4, $"{nameof(Hitpoints)}.{nameof(Hitpoints.Value)}: {Hitpoints.Value}",
+                Indent: indent + 1, Toggle: getDoDebug());
+
+            Debug.Entry(4, $"{nameof(Hitpoints)}.{nameof(Hitpoints.Penalty)}: {Hitpoints.Penalty}",
+                Indent: indent + 1, Toggle: getDoDebug());
+
+            if (ParentObject != null && HaveChargeToRegen(MultiplyBy: RegenRolls) && IsReady(UseCharge: true, MultipleCharge: RegenRolls) && isDamaged)
             {
-                CumulativeChargeUse += (ChargeUse * rolls);
+                CumulativeChargeUse += (ChargeUse * RegenRolls);
 
                 int regenMax = RegenDie.Max();
-                int roll = 0;
+                int testRoll = 0;
+                int roll = -1;
                 bool byChance = false;
 
-                Debug.Entry(4, $"Rolling with {rolls}x Advantage for whether to regen or not...",
+                Debug.Entry(4, $"Rolling with {RegenRolls}x Advantage for whether to regen or not...",
                     Indent: indent + 1, Toggle: getDoDebug());
 
-                for (int i = 0; i < rolls; i++)
+                int regenMaxPadding = regenMax.ToString().Length;
+                string rollString = "";
+                
+                for (int i = 0; i < RegenRolls; i++)
                 {
-                    roll = RegenDie.Resolve();
-                    Debug.LoopItem(4, $"{i}] {nameof(roll)}: {roll}", Indent: indent + 1, Toggle: getDoDebug());
+                    testRoll = RegenDie.Resolve();
+                    rollString = testRoll.ToString().PadLeft(regenMaxPadding, ' ');
+                    Debug.LoopItem(4, $"{i}] {nameof(roll)}: ({rollString}/{regenMax})", Indent: indent + 1, Toggle: getDoDebug());
                     if (!byChance)
                     {
-                        Debug.CheckYeh(4, $"Ding!", Indent: indent + 2, Toggle: getDoDebug());
-                        byChance = roll == RegenDie.Max();
+                        byChance = testRoll == regenMax;
+                        if (byChance)
+                        {
+                            roll = testRoll;
+                            Debug.CheckYeh(4, $"Ding!", Indent: indent + 2, Toggle: getDoDebug());
+                        }
                     }
                 }
-
-                int regenMaxPadding = regenMax.ToString().Length;
-                string rollString = roll.ToString().PadLeft(regenMaxPadding, ' ');
+                if (roll == -1)
+                {
+                    roll = testRoll;
+                }
+                rollString = roll.ToString().PadLeft(regenMaxPadding, ' ');
 
                 RegenAmount = GetRegenAmount();
                 if (byChance && RegenAmount > 0)
@@ -568,25 +594,10 @@ namespace XRL.World.Parts
             return Restore(out _);
         }
 
-        public override bool WantTurnTick()
-        {
-            return true;
-        }
-        public override void TurnTick(long TimeTick, int Amount)
-        {
-            
-            base.TurnTick(TimeTick, Amount);
-        }
         private List<string> StringyRegenEventIDs => new()
         {
             "UD_JostleObjectEvent",
             "UD_GetJostleActivityEvent",
-            // "BeforeThrown",
-        };
-        private Dictionary<Func<bool>, int> EquipperRegenEventIDs => new()
-        {
-            { delegate(){ return true; }, EnteredCellEvent.ID },
-            { delegate(){ return true; }, GetDefenderHitDiceEvent.ID },
         };
         public override void Register(GameObject Object, IEventRegistrar Registrar)
         {
@@ -594,6 +605,8 @@ namespace XRL.World.Parts
                 Indent: Debug.LastIndent, Toggle: getDoDebug('x'));
 
             Registrar.Register(EndTurnEvent.ID, EventOrder.EXTREMELY_EARLY);
+            Registrar.Register(ModificationAppliedEvent.ID, EventOrder.LATE);
+            Registrar.Register(LateBeforeApplyDamageEvent.ID, EventOrder.EXTREMELY_LATE);
             if (!StringyRegenEventIDs.IsNullOrEmpty())
             {
                 foreach (string eventID in StringyRegenEventIDs)
@@ -601,8 +614,6 @@ namespace XRL.World.Parts
                     Registrar.Register(eventID);
                 }
             }
-            Registrar.Register(ModificationAppliedEvent.ID, EventOrder.LATE);
-            Registrar.Register(LateBeforeApplyDamageEvent.ID, EventOrder.EXTREMELY_LATE);
             base.Register(Object, Registrar);
         }
         public override bool WantEvent(int ID, int cascade)
@@ -744,6 +755,12 @@ namespace XRL.World.Parts
                 SB.Append(VANDR).Append("(").AppendColored("g", $"{GetRegenAmount(Max: true)}")
                     .Append($"){HONLY}{nameof(GetRegenAmount)}()");
                 SB.AppendLine();
+                SB.Append(VANDR).Append("(").AppendColored("g", $"{HitpointPercent}")
+                    .Append($"){HONLY}{nameof(HitpointPercent)}()");
+                SB.AppendLine();
+                SB.Append(VANDR).Append("(").AppendColored("C", $"{RegenRolls}")
+                    .Append($"){HONLY}{nameof(RegenRolls)}()");
+                SB.AppendLine();
                 SB.Append(VANDR).Append("(").AppendColored("W", $"{ParentObject.QueryCharge()}")
                     .Append($"){HONLY}{nameof(ParentObject.QueryCharge)}()");
                 SB.AppendLine();
@@ -874,7 +891,7 @@ namespace XRL.World.Parts
                     $"@ {nameof(Mod_UD_RegenNanobots)}." 
                     + $"{nameof(FireEvent)}({nameof(Event)} " 
                     + $"E.ID: {E.ID})",
-                    Indent: indent, Toggle: getDoDebug('x'));
+                    Indent: indent, Toggle: getDoDebug());
 
                 if (E.ID == "UD_JostleObjectEvent" && isBusted && IsReady(UseCharge: true))
                 {
