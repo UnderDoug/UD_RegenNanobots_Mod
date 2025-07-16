@@ -84,14 +84,19 @@ namespace XRL.World.Parts
 
         public float HitpointPercent => Hitpoints != null 
             ? (float)(Hitpoints.BaseValue - Hitpoints.Penalty) / (float)Hitpoints.BaseValue * 100f 
-            : 0;
+            : 100;
 
-        public int RegenRolls => Math.Max(1, 4 - (int)Math.Floor(HitpointPercent / 25f));
+        public int RegenRolls => Math.Max(1, 4 - (int)Math.Ceiling(HitpointPercent / 25f));
 
-        public bool isDamaged => ParentObject != null && ParentObject.isDamaged();
-        public bool isBusted => ParentObject != null && ParentObject.IsBroken();
-        public bool isRusted => ParentObject != null && ParentObject.IsRusted();
-        public bool isShattered => ParentObject != null && ParentObject.HasEffect<ShatteredArmor>();
+        private bool isDamaged => ParentObject != null && ParentObject.isDamaged();
+        private bool isBusted => ParentObject != null && ParentObject.IsBroken();
+        private bool isRusted => ParentObject != null && ParentObject.IsRusted();
+        private bool isShattered => ParentObject != null && ParentObject.HasEffect<ShatteredArmor>();
+
+        private bool isHeld => Holder != null;
+        private bool isEquipped => Equipper != null;
+        private bool isInInventory => isHeld && !isEquipped;
+        private bool isImportant => ParentObject != null && ParentObject.IsImportant();
 
         private bool wantsRestore => isBusted || isRusted || isShattered;
 
@@ -180,10 +185,10 @@ namespace XRL.World.Parts
 
         public static string GetDescription(int Tier)
         {
-            Debug.Entry(4, $"{nameof(Mod_UD_RegenNanobots)}.{nameof(GetDescription)}(int) (static)",
+            Debug.Entry(4, $"{nameof(Mod_UD_RegenNanobots)}.{nameof(GetDescription)}(int {nameof(Tier)} {Tier}) (static)",
                 Indent: Debug.LastIndent, Toggle: getDoDebug('x'));
 
-            return $"{MOD_NAME_COLORED}: while powered, this item will gradually regenerate HP and has a small chance to be restored from being rusted or broken. Higher tier items require more charge to function.";
+            return $"{MOD_NAME_COLORED}: while powered, this item will gradually regenerate HP and has a small chance to be restored from being rusted or broken. Higher tier items require more charge to function. Damaged items regenerate faster but draw more charge to do so.";
         }
         public static string GetDescription(GameObject Item, int Tier)
         {
@@ -193,7 +198,10 @@ namespace XRL.World.Parts
             Statistic hitpoints = Item.GetStat("Hitpoints");
             if (hitpoints != null)
             {
-                Mod_UD_RegenNanobots modRegenNanobots = new();
+                if (!Item.TryGetPart(out Mod_UD_RegenNanobots modRegenNanobots))
+                {
+                    modRegenNanobots = new();
+                }
                 float regenFactor = modRegenNanobots.RegenFactor;
                 int regenAmount = GetRegenAmount(hitpoints, regenFactor, Max: true);
                 int regenRolls = modRegenNanobots.RegenRolls;
@@ -205,7 +213,7 @@ namespace XRL.World.Parts
                 SB.Append("regenerate ").Append(regenAmount).Append(" HP and ");
                 SB.Append("has a ").Append(RestoreDie.Min()).Append(" in ").Append(RestoreDie.Max()).Append(" chance per turn to ");
                 SB.Append("be restored from being rusted or broken. ");
-                SB.Append("Higher tier items require more charge to function.");
+                SB.Append("Higher tier items require more charge to function. Damaged items regenerate faster but draw more charge to do so.");
 
                 return Event.FinalizeString(SB);
             }
@@ -228,7 +236,9 @@ namespace XRL.World.Parts
             string regenerative = LowerCase ? Grammar.MakeLowerCase(REGENERATIVE) : Grammar.MakeTitleCase(REGENERATIVE);
             string nanobots = LowerCase ? Grammar.MakeLowerCase(NANOBOTS) : Grammar.MakeTitleCase(NANOBOTS);
 
-            string output = $"{(regenerative).Color("regenerative")} {(nanobots).Color("nanobots")}";
+            bool needsRestored = Item.HasEffect<ShatteredArmor>() || Item.HasEffect<Rusted>() || Item.HasEffect<Broken>();
+
+            string output = $"{(regenerative).Color("regenerative")} {(nanobots).Color(needsRestored ? "greygoo" : "nanobots")}";
 
             Statistic Hitpoints = Item?.GetStat("Hitpoints");
 
@@ -399,7 +409,7 @@ namespace XRL.World.Parts
             return GetRegenAmount(Hitpoints, RegenFactor, Max);
         }
 
-        public bool Regenerate(out int RegenAmount)
+        public bool Regenerate(out int RegenAmount, bool Silent = false)
         {
             int indent = Debug.LastIndent;
             Debug.Entry(4, 
@@ -409,16 +419,13 @@ namespace XRL.World.Parts
             RegenAmount = 0;
             bool didRegen = false;
 
-            Debug.Entry(4, $"{nameof(HitpointPercent)}: {HitpointPercent}/25f = {(int)Math.Floor(HitpointPercent / 25f)}",
+            Debug.Entry(4, $"{nameof(Hitpoints)}.{nameof(Hitpoints.Value)}: {Hitpoints.Value}",
                 Indent: indent + 1, Toggle: getDoDebug());
 
             Debug.Entry(4, $"{nameof(Hitpoints)}.{nameof(Hitpoints.BaseValue)}: {Hitpoints.BaseValue}",
                 Indent: indent + 1, Toggle: getDoDebug());
 
-            Debug.Entry(4, $"{nameof(Hitpoints)}.{nameof(Hitpoints.Value)}: {Hitpoints.Value}",
-                Indent: indent + 1, Toggle: getDoDebug());
-
-            Debug.Entry(4, $"{nameof(Hitpoints)}.{nameof(Hitpoints.Penalty)}: {Hitpoints.Penalty}",
+            Debug.Entry(4, $"{nameof(HitpointPercent)}: {HitpointPercent}% ( / 25f = {(int)Math.Ceiling(HitpointPercent / 25f)})",
                 Indent: indent + 1, Toggle: getDoDebug());
 
             if (ParentObject != null && HaveChargeToRegen(MultiplyBy: RegenRolls) && IsReady(UseCharge: true, MultipleCharge: RegenRolls) && isDamaged)
@@ -430,7 +437,7 @@ namespace XRL.World.Parts
                 int roll = -1;
                 bool byChance = false;
 
-                Debug.Entry(4, $"Rolling with {RegenRolls}x Advantage for whether to regen or not...",
+                Debug.Entry(4, $"Rolling with {RegenRolls - 1}x Advantage for whether to regen or not...",
                     Indent: indent + 1, Toggle: getDoDebug());
 
                 int regenMaxPadding = regenMax.ToString().Length;
@@ -483,7 +490,7 @@ namespace XRL.World.Parts
 
                         if (!isDamaged)
                         {
-                            if (Holder.IsPlayer())
+                            if (ShouldPopupRegen(Silent) && Holder.IsPlayer())
                             {
                                 Popup.Show(GameText.VariableReplace(fullyRegenMessage, Subject: ParentObject, Object: Holder));
                             }
@@ -508,15 +515,15 @@ namespace XRL.World.Parts
 
             return didRegen;
         }
-        public bool Regenerate()
+        public bool Regenerate(bool Silent = false)
         {
             Debug.Entry(4, $"{nameof(Mod_UD_RegenNanobots)}.{nameof(Regenerate)}()",
                 Indent: Debug.LastIndent, Toggle: getDoDebug('x'));
 
-            return Regenerate(out _);
+            return Regenerate(out _, Silent);
         }
 
-        public bool Restore(out string Condition)
+        public bool Restore(out string Condition, bool Silent = false)
         {
             int indent = Debug.LastIndent;
             Debug.Entry(4, 
@@ -562,7 +569,7 @@ namespace XRL.World.Parts
                         CumulativeChargeUse += GetRestoreChargeUse();
                         TimesRestored++;
 
-                        if (Holder.IsPlayer())
+                        if (ShouldPopupRestore(Silent) && Holder.IsPlayer())
                         {
                             Popup.Show(GameText.VariableReplace(message, Subject: ParentObject, Object: Holder));
                         }
@@ -586,12 +593,70 @@ namespace XRL.World.Parts
 
             return didRestore;
         }
-        public bool Restore()
+        public bool Restore(bool Silent = false)
         {
             Debug.Entry(4, $"{nameof(Mod_UD_RegenNanobots)}.{nameof(Restore)}()",
                 Indent: Debug.LastIndent, Toggle: getDoDebug('x'));
 
-            return Restore(out _);
+            return Restore(out _, Silent);
+        }
+
+        public static bool ShouldPopupRegen(GameObject Item, bool IsEquipped, bool IsInInventory, bool IsImportant, bool Silent = false)
+        {
+            if (Item == null || Silent || !Options.EnableRegenPopups)
+            {
+                return false;
+            }
+            if (IsImportant && Options.EnableRegenPopupsForImportant)
+            {
+                return true;
+            }
+            if (IsInInventory && !Options.EnableRegenPopupsForInventory)
+            {
+                return false;
+            }
+            if (IsEquipped && !Options.EnableRegenPopupsForEquipped)
+            {
+                return false;
+            }
+            return true;
+        }
+        public bool ShouldPopupRegen(bool IsEquipped, bool IsInInventory, bool IsImportant, bool Silent = false)
+        {
+            return ShouldPopupRegen(ParentObject, IsEquipped, IsInInventory, IsImportant, Silent);
+        }
+        public bool ShouldPopupRegen(bool Silent = false)
+        {
+            return ShouldPopupRegen(ParentObject, isEquipped, isInInventory, isImportant, Silent);
+        }
+
+        public static bool ShouldPopupRestore(GameObject Item, bool IsEquipped, bool IsInInventory, bool IsImportant, bool Silent = false)
+        {
+            if (Item == null || Silent || !Options.EnableRestorePopups)
+            {
+                return false;
+            }
+            if (IsImportant && Options.EnableRestorePopupsForImportant)
+            {
+                return true;
+            }
+            if (IsInInventory && !Options.EnableRestorePopupsForInventory)
+            {
+                return false;
+            }
+            if (IsEquipped && !Options.EnableRestorePopupsForEquipped)
+            {
+                return false;
+            }
+            return true;
+        }
+        public bool ShouldPopupRestore(bool IsEquipped, bool IsInInventory, bool IsImportant, bool Silent = false)
+        {
+            return ShouldPopupRestore(ParentObject, IsEquipped, IsInInventory, IsImportant, Silent);
+        }
+        public bool ShouldPopupRestore(bool Silent = false)
+        {
+            return ShouldPopupRestore(ParentObject, isEquipped, isInInventory, isImportant, Silent);
         }
 
         private List<string> StringyRegenEventIDs => new()
@@ -824,16 +889,16 @@ namespace XRL.World.Parts
 
                 SB.AppendColored("W", $"Bools")
                     .AppendLine();
-                SB.Append(VANDR).Append($"[{isDamaged.YehNah(true)}]{HONLY}{nameof(isDamaged)}: ")
+                SB.Append(VANDR).Append($"[{isDamaged.YehNah()}]{HONLY}{nameof(isDamaged)}: ")
                     .AppendColored("B", $"{isDamaged}");
                 SB.AppendLine();
-                SB.Append(VANDR).Append($"[{isShattered.YehNah(true)}]{HONLY}{nameof(isShattered)}: ")
+                SB.Append(VANDR).Append($"[{isShattered.YehNah()}]{HONLY}{nameof(isShattered)}: ")
                     .AppendColored("B", $"{isShattered}");
                 SB.AppendLine();
-                SB.Append(VANDR).Append($"[{isRusted.YehNah(true)}]{HONLY}{nameof(isRusted)}: ")
+                SB.Append(VANDR).Append($"[{isRusted.YehNah()}]{HONLY}{nameof(isRusted)}: ")
                     .AppendColored("B", $"{isRusted}");
                 SB.AppendLine();
-                SB.Append(VANDR).Append($"[{isBusted.YehNah(true)}]{HONLY}{nameof(isBusted)}: ")
+                SB.Append(VANDR).Append($"[{isBusted.YehNah()}]{HONLY}{nameof(isBusted)}: ")
                     .AppendColored("B", $"{isBusted}");
                 SB.AppendLine();
                 SB.Append(VANDR).Append($"[{haveChargeToRegen.YehNah()}]{HONLY}{nameof(HaveChargeToRegen)}(): ")

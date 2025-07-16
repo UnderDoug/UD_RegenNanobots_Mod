@@ -16,5 +16,15 @@ namespace UD_RegenNanobots_Mod
         [OptionFlag] public static bool DebugIncludeInMessage;
         [OptionFlag] public static bool DebugRegenNanobotsModDescriptions;
 
+        // Mod Options
+        [OptionFlag] public static bool EnableRegenPopups;
+        [OptionFlag] public static bool EnableRegenPopupsForEquipped;
+        [OptionFlag] public static bool EnableRegenPopupsForInventory;
+        [OptionFlag] public static bool EnableRegenPopupsForImportant;
+        [OptionFlag] public static bool EnableRestorePopups;
+        [OptionFlag] public static bool EnableRestorePopupsForEquipped;
+        [OptionFlag] public static bool EnableRestorePopupsForInventory;
+        [OptionFlag] public static bool EnableRestorePopupsForImportant;
+
     } //!-- public static class Options
 }
