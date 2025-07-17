@@ -146,29 +146,34 @@ namespace XRL.World.Parts
         {
             if (Context == "Internal")
             {
+                int indent = Debug.LastIndent;
                 Debug.Entry(4,
                     $"{nameof(Mod_UD_RegenNanobots)}." +
                     $"{nameof(CanRegen)}(" +
                     $"{Object?.DebugName ?? NULL})",
-                    Indent: Debug.LastIndent, Toggle: doDebug);
+                    Indent: indent, Toggle: doDebug);
             }
             return Object != null && Object.HasStat("Hitpoints");
         }
 
         public static int CalculateBaseChargeUse(int Tier = 1, int ObjectTechTier = 0, int Complexity = 0)
         {
+            int indent = Debug.LastIndent;
             Debug.Entry(4, $"{nameof(Mod_UD_RegenNanobots)}.{nameof(CalculateBaseChargeUse)} (static)", 
-                Indent: Debug.LastIndent, Toggle: getDoDebug('x'));
+                Indent: indent, Toggle: getDoDebug('x'));
 
             int multiplier = 5;
             multiplier += ObjectTechTier;
             multiplier += Complexity;
+
+            Debug.LastIndent = indent;
             return Tier * multiplier;
         }
         public int CalculateBaseChargeUse()
         {
+            int indent = Debug.LastIndent;
             Debug.Entry(4, $"{nameof(Mod_UD_RegenNanobots)}.{nameof(CalculateBaseChargeUse)} (instance)",
-                Indent: Debug.LastIndent, Toggle: getDoDebug('x'));
+                Indent: indent, Toggle: getDoDebug('x'));
 
             int complexity = 1;
             int objectTechTier = 1;
@@ -180,6 +185,7 @@ namespace XRL.World.Parts
             {
                 complexity = Examiner.Complexity;
             }
+            Debug.LastIndent = indent;
             return CalculateBaseChargeUse(Tier, objectTechTier, complexity);
         }
 
