@@ -1,7 +1,7 @@
 {
     "id": "ud_regenNanobots_mod",
-    "title": "{{regenerative|Regenerative}} {{nanobots|Nanobots}} (development)",
-    "description": "Adds a high-tier (8) modification which, when powered, gradually repairs the modified item and even sometimes restores it from being broken or rusted!",
+    "title": "{{regenerative|Regenerative}} {{nanobots|Nanobots}}",
+    "description": "Adds a high-tier (8) modification which, when powered, gradually regenerates the modified item's hitpoints and even sometimes restores it from being broken or rusted!",
     "version": "0.0.1",
     "author": "{{K-g-G-Y-G-g-K alternation|UnderDoug}}",
     "tags": "Modification,Balance,Harmony",

@@ -1,9 +1,7 @@
-﻿using Mono.Unix.Native;
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.EnterpriseServices;
 using System.Text;
-using UD_RegenNanobots_Mod;
+
 using XRL.Language;
 using XRL.Rules;
 using XRL.UI;
@@ -12,11 +10,14 @@ using XRL.World.Capabilities;
 using XRL.World.Effects;
 using XRL.World.Parts.Skill;
 using XRL.World.Tinkering;
+
+using UD_RegenNanobots_Mod;
+
 using static UD_RegenNanobots_Mod.Const;
 using static UD_RegenNanobots_Mod.Utils;
-using static XRL.World.Conversations.ConversationEvent;
 using Debug = UD_RegenNanobots_Mod.Debug;
 using Options = UD_RegenNanobots_Mod.Options;
+
 using SerializeField = UnityEngine.SerializeField;
 
 namespace XRL.World.Parts
@@ -211,7 +212,7 @@ namespace XRL.World.Parts
                 Indent: indent + 1, Toggle: getDoDebug('x'));
 
             Debug.LastIndent = indent;
-            return $"{MOD_NAME_COLORED}: while powered, this item will gradually regenerate HP and has a small chance to be restored from being rusted or broken. Higher tier items require more charge to function. Damaged items regenerate faster but draw more charge to do so.";
+            return $"{MOD_NAME_COLORED}: while powered, this item will gradually regenerate HP and has a small chance to be restored from being cracked, rusted, or broken. Higher tier items require more charge to function. Higher damage results in faster regeneration but a higher charge draw.";
         }
         public static string GetDescription(GameObject Item, int Tier)
         {
@@ -239,8 +240,9 @@ namespace XRL.World.Parts
                 SB.Append("has a ").Append(RegenDie.Min() * regenRolls).Append(" in ").Append(RegenDie.Max()).Append(" chance per turn to ");
                 SB.Append("regenerate ").Append(regenAmount).Append(" HP and ");
                 SB.Append("has a ").Append(RestoreDie.Min()).Append(" in ").Append(RestoreDie.Max()).Append(" chance per turn to ");
-                SB.Append("be restored from being rusted or broken. ");
-                SB.Append("Higher tier items require more charge to function. Damaged items regenerate faster but draw more charge to do so.");
+                SB.Append("be restored from being cracked, rusted, or broken. ");
+                SB.Append("Higher tier items require more charge to function. ");
+                SB.Append("Higher damage results in faster regeneration but a higher charge draw.");
 
                 output = Event.FinalizeString(SB);
             }
@@ -401,7 +403,7 @@ namespace XRL.World.Parts
         {
             int indent = Debug.LastIndent;
             Debug.Entry(4, $"{nameof(Mod_UD_RegenNanobots)}.{nameof(GetRegenChargeUse)}",
-                Indent: indent + 1, Toggle: getDoDebug());
+                Indent: indent + 1, Toggle: getDoDebug('x'));
             
             int output = 0;
 
@@ -418,7 +420,7 @@ namespace XRL.World.Parts
         {
             int indent = Debug.LastIndent;
             Debug.Entry(4, $"{nameof(Mod_UD_RegenNanobots)}.{nameof(GetRestoreChargeUse)}",
-                Indent: indent + 1, Toggle: getDoDebug());
+                Indent: indent + 1, Toggle: getDoDebug('x'));
 
             int output = 0;
 
