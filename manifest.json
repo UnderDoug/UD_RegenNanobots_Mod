@@ -1,5 +1,5 @@
 {
-    "id": "ud_regenNanobots_mod",
+    "id": "UD_RegenNanobots_Mod",
     "title": "{{regenerative|Regenerative}} {{nanobots|Nanobots}}",
     "description": "Adds a high-tier (8) modification which, when powered, gradually regenerates the modified item's hitpoints and even sometimes restores it from being broken or rusted!",
     "version": "0.0.1",

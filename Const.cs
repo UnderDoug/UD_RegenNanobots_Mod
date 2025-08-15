@@ -8,7 +8,7 @@ namespace UD_RegenNanobots_Mod
 {
     public static class Const
     {
-        public const string MOD_ID = "ud_regenNanobots_mod";
+        public const string MOD_ID = "UD_RegenNanobots_Mod";
 
         public const string DEBUG_HIGHLIGHT_CELLS = "UD_Debug_HighlightCells";
 
