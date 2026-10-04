@@ -85,9 +85,11 @@ namespace XRL.World.Parts
 
         public int CumulativeChargeUse = 0;
 
-        public float HitpointPercent => Hitpoints != null 
+        public float HitpointPercent
+            => Hitpoints != null 
             ? (float)(Hitpoints.BaseValue - Hitpoints.Penalty) / (float)Hitpoints.BaseValue 
-            : 1;
+            : 1
+            ;
 
         public int RegenRolls => Math.Max(1, 4 - (int)Math.Ceiling(HitpointPercent / 0.25f));
 
@@ -112,14 +114,17 @@ namespace XRL.World.Parts
             : base(Tier)
         {
         }
+
         public override bool AllowStaticRegistration()
         {
             return true;
         }
+
         public override int GetModificationSlotUsage()
         {
             return 1;
         }
+
         public override void Configure()
         {
             int indent = Debug.LastIndent;
@@ -136,6 +141,7 @@ namespace XRL.World.Parts
 
             Debug.LastIndent = indent;
         }
+
         public override void TierConfigure()
         {
             int indent = Debug.LastIndent;
@@ -148,10 +154,12 @@ namespace XRL.World.Parts
 
             Debug.LastIndent = indent;
         }
+
         public override bool ModificationApplicable(GameObject Object)
         {
             return CanRegen(Object);
         }
+
         public static bool CanRegen(GameObject Object, string Context = "")
         {
             if (Context == "Internal")
@@ -182,6 +190,7 @@ namespace XRL.World.Parts
             Debug.LastIndent = indent;
             return Tier * multiplier;
         }
+
         public int CalculateBaseChargeUse()
         {
             int indent = Debug.LastIndent;
@@ -214,6 +223,7 @@ namespace XRL.World.Parts
             Debug.LastIndent = indent;
             return $"{MOD_NAME_COLORED}: while powered, this item will gradually regenerate HP and has a small chance to be restored from being cracked, rusted, or broken. Higher tier items require more charge to function. Higher damage results in faster regeneration but a higher charge draw.";
         }
+
         public static string GetDescription(GameObject Item, int Tier)
         {
             int indent = Debug.LastIndent;
@@ -254,6 +264,7 @@ namespace XRL.World.Parts
             Debug.LastIndent = indent;
             return output;
         }
+
         public string GetInstanceDescription()
         {
             int indent = Debug.LastIndent;
@@ -265,6 +276,7 @@ namespace XRL.World.Parts
             Debug.LastIndent = indent;
             return output;
         }
+
         public static string GetDynamicModName(GameObject Item, int Tier, bool LowerCase = false, float percentHP = 0f)
         {
             int indent = Debug.LastIndent;
@@ -331,6 +343,7 @@ namespace XRL.World.Parts
             Debug.LastIndent = indent;
             return output;
         }
+
         public string GetDynamicModName(bool LowerCase = false)
         {
             int indent = Debug.LastIndent;
@@ -354,6 +367,7 @@ namespace XRL.World.Parts
             Debug.LastIndent = indent;
             base.Attach();
         }
+
         public override void ApplyModification(GameObject Object)
         {
             int indent = Debug.LastIndent;
@@ -376,6 +390,7 @@ namespace XRL.World.Parts
             Debug.LastIndent = indent;
             base.ApplyModification(Object);
         }
+
         public bool ApplyEquipmentFrameColors()
         {
             int indent = Debug.LastIndent;
@@ -450,6 +465,7 @@ namespace XRL.World.Parts
             Debug.LastIndent = indent;
             return false;
         }
+
         public bool HaveChargeToRestore(int LessAmount = 0, int MultiplyBy = 1)
         {
             int indent = Debug.LastIndent;
@@ -487,6 +503,7 @@ namespace XRL.World.Parts
             Debug.LastIndent = indent;
             return amount;
         }
+
         public int GetRegenAmount(bool Max = false)
         {
             int indent = Debug.LastIndent;
@@ -604,6 +621,7 @@ namespace XRL.World.Parts
             Debug.LastIndent = indent;
             return didRegen;
         }
+
         public bool Regenerate(bool Silent = false)
         {
             int indent = Debug.LastIndent;
@@ -638,7 +656,10 @@ namespace XRL.World.Parts
             Debug.LoopItem(4, $"{nameof(isBusted)}: {isBusted}",
                 Good: isBusted, Indent: indent + 3, Toggle: getDoDebug());
 
-            if (ParentObject != null && wantsRestore && IsReady(UseCharge: true) && HaveChargeToRestore())
+            if (ParentObject != null
+                && wantsRestore
+                && IsReady(UseCharge: true)
+                && HaveChargeToRestore())
             {
                 CumulativeChargeUse += ChargeUse;
                 int regenMax = RestoreDie.Max();
@@ -650,9 +671,9 @@ namespace XRL.World.Parts
                 {
                     string equipped = Equipper != null ? "equipped " : "";
 
-                    ShatteredArmor shattered = ParentObject?.GetEffect<ShatteredArmor>();
-                    Rusted rusted = ParentObject?.GetEffect<Rusted>();
-                    Broken busted = ParentObject?.GetEffect<Broken>();
+                    var shattered = ParentObject?.GetEffect<ShatteredArmor>();
+                    var rusted = ParentObject?.GetEffect<Rusted>();
+                    var busted = ParentObject?.GetEffect<Broken>();
                     Condition = shattered?.DisplayName ?? rusted?.DisplayName ?? busted?.DisplayName;
 
                     Debug.Entry(3, $"{nameof(Condition)}: {Condition}",
@@ -688,13 +709,9 @@ namespace XRL.World.Parts
                         }
 
                         if (ShouldPopupRestore(Silent) && Holder.IsPlayer())
-                        {
                             Popup.Show(GameText.VariableReplace(message, Subject: ParentObject, Object: Holder));
-                        }
                         else
-                        {
                             AddPlayerMessage(message);
-                        }
                     }
                 }
                 else
@@ -710,6 +727,7 @@ namespace XRL.World.Parts
             Debug.LastIndent = indent;
             return didRestore;
         }
+
         public bool Restore(bool Silent = false)
         {
             int indent = Debug.LastIndent;
@@ -722,30 +740,39 @@ namespace XRL.World.Parts
             return didRestore;
         }
 
-        public static bool ShouldPopupRegen(GameObject Item, bool IsEquipped, bool IsInInventory, bool IsImportant, bool Silent = false)
+        public static bool ShouldPopupRegen(
+            GameObject Item,
+            bool IsEquipped,
+            bool IsInInventory,
+            bool IsImportant,
+            bool Silent = false
+            )
         {
-            if (Item == null || Silent || !Options.EnableRegenPopups)
-            {
+            if (Item == null
+                || Silent
+                || !Options.EnableRegenPopups)
                 return false;
-            }
-            if (IsImportant && Options.EnableRegenPopupsForImportant)
-            {
+
+            if (IsImportant
+                && Options.EnableRegenPopupsForImportant)
                 return true;
-            }
-            if (IsInInventory && !Options.EnableRegenPopupsForInventory)
-            {
+
+            if (IsInInventory
+                && !Options.EnableRegenPopupsForInventory)
                 return false;
-            }
-            if (IsEquipped && !Options.EnableRegenPopupsForEquipped)
-            {
+
+            if (IsEquipped
+                && !Options.EnableRegenPopupsForEquipped)
                 return false;
-            }
+
             return true;
         }
+
         public bool ShouldPopupRegen(bool IsEquipped, bool IsInInventory, bool IsImportant, bool Silent = false)
         {
             return ShouldPopupRegen(ParentObject, IsEquipped, IsInInventory, IsImportant, Silent);
         }
+
         public bool ShouldPopupRegen(bool Silent = false)
         {
             return ShouldPopupRegen(ParentObject, isEquipped, isInInventory, isImportant, Silent);
@@ -753,28 +780,31 @@ namespace XRL.World.Parts
 
         public static bool ShouldPopupRestore(GameObject Item, bool IsEquipped, bool IsInInventory, bool IsImportant, bool Silent = false)
         {
-            if (Item == null || Silent || !Options.EnableRestorePopups)
-            {
+            if (Item == null
+                || Silent
+                || !Options.EnableRestorePopups)
                 return false;
-            }
-            if (IsImportant && Options.EnableRestorePopupsForImportant)
-            {
+
+            if (IsImportant
+                && Options.EnableRestorePopupsForImportant)
                 return true;
-            }
-            if (IsInInventory && !Options.EnableRestorePopupsForInventory)
-            {
+
+            if (IsInInventory
+                && !Options.EnableRestorePopupsForInventory)
                 return false;
-            }
-            if (IsEquipped && !Options.EnableRestorePopupsForEquipped)
-            {
+
+            if (IsEquipped
+                && !Options.EnableRestorePopupsForEquipped)
                 return false;
-            }
+
             return true;
         }
+
         public bool ShouldPopupRestore(bool IsEquipped, bool IsInInventory, bool IsImportant, bool Silent = false)
         {
             return ShouldPopupRestore(ParentObject, IsEquipped, IsInInventory, IsImportant, Silent);
         }
+
         public bool ShouldPopupRestore(bool Silent = false)
         {
             return ShouldPopupRestore(ParentObject, isEquipped, isInInventory, isImportant, Silent);
@@ -785,6 +815,7 @@ namespace XRL.World.Parts
             "UD_JostleObjectEvent",
             "UD_GetJostleActivityEvent",
         };
+
         public override void Register(GameObject Object, IEventRegistrar Registrar)
         {
             int indent = Debug.LastIndent;
@@ -794,25 +825,24 @@ namespace XRL.World.Parts
             Registrar.Register(EndTurnEvent.ID, EventOrder.EXTREMELY_EARLY);
             Registrar.Register(ModificationAppliedEvent.ID, EventOrder.LATE);
             Registrar.Register(LateBeforeApplyDamageEvent.ID, EventOrder.EXTREMELY_LATE);
+
             if (!StringyRegenEventIDs.IsNullOrEmpty())
-            {
                 foreach (string eventID in StringyRegenEventIDs)
-                {
                     Registrar.Register(eventID);
-                }
-            }
+
 
             Debug.LastIndent = indent;
             base.Register(Object, Registrar);
         }
+
         public override bool WantEvent(int ID, int cascade)
-        {
-            return base.WantEvent(ID, cascade)
-                || ID == GetItemElementsEvent.ID
-                || ID == GetDisplayNameEvent.ID
-                || ID == GetShortDescriptionEvent.ID
-                || ID == GetDebugInternalsEvent.ID;
-        }
+            => base.WantEvent(ID, cascade)
+            || ID == GetItemElementsEvent.ID
+            || ID == GetDisplayNameEvent.ID
+            || ID == GetShortDescriptionEvent.ID
+            || ID == GetDebugInternalsEvent.ID
+            ;
+
         public override bool HandleEvent(EndTurnEvent E)
         {
             if (ParentObject != null && Holder != null && Holder.CurrentZone == The.ActiveZone && !ParentObject.IsInGraveyard())
@@ -830,6 +860,7 @@ namespace XRL.World.Parts
             }
             return base.HandleEvent(E);
         }
+
         public override bool HandleEvent(ModificationAppliedEvent E)
         {
             int indent = Debug.LastIndent;
@@ -860,7 +891,7 @@ namespace XRL.World.Parts
                     Debug.Entry(2, $"Requiring {nameof(ZeroPointEnergyCollector)}...",
                         Indent: indent + 2, Toggle: getDoDebug());
 
-                    ZeroPointEnergyCollector zPECollector = E.Object.RequirePart<ZeroPointEnergyCollector>();
+                    var zPECollector = E.Object.RequirePart<ZeroPointEnergyCollector>();
                     zPECollector.ChargeRate = baseChargeRate;
                     zPECollector.World = "*";
                     zPECollector.IsBootSensitive = false;
@@ -906,7 +937,7 @@ namespace XRL.World.Parts
 
                     Debug.Entry(2, $"Requiring {nameof(IntegralRecharger)}...",
                         Indent: indent + 2, Toggle: getDoDebug());
-                    IntegralRecharger integralRecharger = E.Object.RequirePart<IntegralRecharger>();
+                    var integralRecharger = E.Object.RequirePart<IntegralRecharger>();
                     if (integralRecharger.ChargeRate < combinedChargeRate)
                     {
                         integralRecharger.ChargeRate = combinedChargeRate;
@@ -926,6 +957,7 @@ namespace XRL.World.Parts
             Debug.LastIndent = indent;
             return base.HandleEvent(E);
         }
+
         public override bool HandleEvent(GetItemElementsEvent E)
         {
             int indent = Debug.LastIndent;
@@ -940,6 +972,7 @@ namespace XRL.World.Parts
             Debug.LastIndent = indent;
             return base.HandleEvent(E);
         }
+
         public override bool HandleEvent(GetDisplayNameEvent E)
         {
             int indent = Debug.LastIndent;
@@ -953,6 +986,7 @@ namespace XRL.World.Parts
             Debug.LastIndent = indent;
             return base.HandleEvent(E);
         }
+
         public override bool HandleEvent(GetShortDescriptionEvent E)
         {
             int indent = Debug.LastIndent;
@@ -975,9 +1009,8 @@ namespace XRL.World.Parts
                 {
                     string coloredEquipmentFrame = "{{y|";
                     foreach (char c in equipmentFrame)
-                    {
                         coloredEquipmentFrame += $"&{c}{c}";
-                    }
+
                     equipmentFrame = coloredEquipmentFrame += "}}"; 
                 }
 
@@ -1109,6 +1142,7 @@ namespace XRL.World.Parts
             Debug.LastIndent = indent;
             return base.HandleEvent(E);
         }
+
         public override bool HandleEvent(GetDebugInternalsEvent E)
         {
             int complexity = Examiner != null ? Examiner.Complexity : 0;
@@ -1131,26 +1165,22 @@ namespace XRL.World.Parts
             E.AddEntry(this, $"{nameof(complexity)}", $"{complexity}");
             E.AddEntry(this, $"Charge Calcs", $"{Tier} * ({BaseChargeMultiplier} + {ObjectTechTier} + {complexity})");
             E.AddEntry(this, $"{nameof(ParentObject.QueryCharge)}", $"{ParentObject.QueryCharge()}");
+
             if (ParentObject.TryGetPart(out SolarArray solarArray))
-            {
                 E.AddEntry(this, $"{nameof(SolarArray)} {nameof(solarArray.ChargeRate)}", $"{solarArray.ChargeRate}");
-            }
+
             if (ParentObject.TryGetPart(out BroadcastPowerReceiver broadcastPowerReceiver))
-            {
                 E.AddEntry(this, $"{nameof(BroadcastPowerReceiver)} {nameof(broadcastPowerReceiver.ChargeRate)}", $"{broadcastPowerReceiver.ChargeRate}");
-            }
+
             if (ParentObject.TryGetPart(out ZeroPointEnergyCollector zPECollector))
-            {
                 E.AddEntry(this, $"{nameof(ZeroPointEnergyCollector)} {nameof(zPECollector.ChargeRate)}", $"{zPECollector.ChargeRate}");
-            }
+
             if (ParentObject.TryGetPart(out EnergyCell energyCell))
-            {
                 E.AddEntry(this, $"{nameof(EnergyCell)} {nameof(energyCell.ChargeRate)}", $"{energyCell.ChargeRate}");
-            }
+
             if (ParentObject.TryGetPart(out IntegralRecharger integralRecharger))
-            {
                 E.AddEntry(this, $"{nameof(IntegralRecharger)} {nameof(integralRecharger.ChargeRate)}", $"{integralRecharger.ChargeRate}");
-            }
+
             E.AddEntry(this, $"{nameof(ChargeUse)}", $"{ChargeUse}");
             E.AddEntry(this, $"{nameof(GetRegenChargeUse)}", $"{GetRegenChargeUse()}");
             E.AddEntry(this, $"{nameof(HaveChargeToRegen)}", $"{HaveChargeToRegen()}");
@@ -1165,9 +1195,13 @@ namespace XRL.World.Parts
             E.AddEntry(this, $"{nameof(isImportant)}", $"{isImportant}");
             return base.HandleEvent(E);
         }
+
         public override bool HandleEvent(LateBeforeApplyDamageEvent E)
         {
-            if (E.Object != null && E.Object == ParentObject && E.Damage.Attributes.Contains("Jostle") && isBusted && IsReady(UseCharge: true))
+            if (E.Object != null
+                && E.Object == ParentObject
+                && E.Damage.Attributes.Contains("Jostle")
+                && isBusted && IsReady(UseCharge: true))
             {
                 int indent = Debug.LastIndent;
                 Debug.Entry(3,
@@ -1182,13 +1216,9 @@ namespace XRL.World.Parts
                 message = GameText.VariableReplace(message, Subject: ParentObject, Object: Holder);
 
                 if (Holder.IsPlayer())
-                {
                     Popup.Show(message);
-                }
                 else
-                {
                     AddPlayerMessage(message);
-                }
 
                 Debug.Entry(4, message, Indent: indent + 1, Toggle: getDoDebug());
 
@@ -1199,9 +1229,10 @@ namespace XRL.World.Parts
             }
             return base.HandleEvent(E);
         }
+
         public override bool FireEvent(Event E)
         {
-            if (!StringyRegenEventIDs.IsNullOrEmpty() && StringyRegenEventIDs.Contains(E.ID))
+            if (StringyRegenEventIDs?.Contains(E.ID) is true)
             {
                 int indent = Debug.LastIndent;
                 Debug.Entry(2, 
@@ -1210,23 +1241,20 @@ namespace XRL.World.Parts
                     + $"E.ID: {E.ID})",
                     Indent: indent + 1, Toggle: getDoDebug());
 
-                if (E.ID == "UD_JostleObjectEvent" && isBusted && IsReady(UseCharge: true))
-                {
+                if (E.ID == "UD_JostleObjectEvent"
+                    && isBusted
+                    && IsReady(UseCharge: true))
                     Debug.Entry(3, $"Used charge while busted and jostled", Indent: indent + 2, Toggle: getDoDebug());
-                }
+
                 if (E.ID == "UD_GetJostleActivityEvent" 
-                    && E.GetParameter("FromEvent") is MinEvent fromEvent
+                    && E.GetParameter("FromEvent") is IChargeConsumptionEvent chargeConsumptionEvent
                     && ParentObject.HasPart<EnergyCell>()
-                    && (fromEvent.GetType() == typeof(ChargeUsedEvent) || fromEvent.GetType() == typeof(UseChargeEvent)))
+                    && chargeConsumptionEvent.Amount == GetRegenChargeUse())
                 {
-                    if (fromEvent is ChargeUsedEvent chargeUsedEvent && chargeUsedEvent.Amount == GetRegenChargeUse()
-                        || fromEvent is UseChargeEvent useChargeEvent && useChargeEvent.Amount == GetRegenChargeUse())
-                    {
-                        E.SetParameter("Activity", 0);
-                        Debug.Entry(3, 
-                            $"Blocked {nameof(EnergyCell)} from being jostled when using its own charge to regenerate", 
-                            Indent: indent + 2, Toggle: getDoDebug());
-                    }
+                    E.SetParameter("Activity", 0);
+                    Debug.Entry(3, 
+                        $"Blocked {nameof(EnergyCell)} from being jostled when using its own charge to regenerate", 
+                        Indent: indent + 2, Toggle: getDoDebug());
                 }
 
                 Debug.LastIndent = indent;
