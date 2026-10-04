@@ -75,7 +75,7 @@ namespace XRL.World.Parts
 
         public static DieRoll RestoreDie => new($"1d120");
 
-        public int ObjectTechTier => ParentObject.GetTechTier();
+        public int ObjectTechTier => ParentObject?.GetTechTier() ?? 1;
 
         public float RegenFactor = 0.01f;
 
@@ -116,14 +116,12 @@ namespace XRL.World.Parts
         }
 
         public override bool AllowStaticRegistration()
-        {
-            return true;
-        }
+            => true
+            ;
 
         public override int GetModificationSlotUsage()
-        {
-            return 1;
-        }
+            => 1
+            ;
 
         public override void Configure()
         {
@@ -174,7 +172,9 @@ namespace XRL.World.Parts
 
                 Debug.LastIndent = indent;
             }
-            return Object != null && Object.HasStat("Hitpoints");
+            return Object != null
+                && Object.HasStat("Hitpoints")
+                ;
         }
 
         public static int CalculateBaseChargeUse(int Tier = 1, int ObjectTechTier = 0, int Complexity = 0)
@@ -197,18 +197,7 @@ namespace XRL.World.Parts
             Debug.Entry(4, $"{nameof(Mod_UD_RegenNanobots)}.{nameof(CalculateBaseChargeUse)}() [instance]",
                 Indent: indent + 1, Toggle: getDoDebug('x'));
 
-            int complexity = 1;
-            int objectTechTier = 1;
-            if (ParentObject != null)
-            {
-                objectTechTier = ObjectTechTier;
-            }
-            if (Examiner != null)
-            {
-                complexity = Examiner.Complexity;
-            }
-
-            int output = CalculateBaseChargeUse(Tier, objectTechTier, complexity);
+            int output = CalculateBaseChargeUse(Tier, ObjectTechTier, Examiner?.Complexity ?? 1);
 
             Debug.LastIndent = indent;
             return output;
@@ -277,7 +266,12 @@ namespace XRL.World.Parts
             return output;
         }
 
-        public static string GetDynamicModName(GameObject Item, int Tier, bool LowerCase = false, float percentHP = 0f)
+        public static string GetDynamicModName(
+            GameObject Item,
+            int Tier,
+            bool LowerCase = false,
+            float percentHP = 0f
+            )
         {
             int indent = Debug.LastIndent;
             Debug.Entry(4, $"{nameof(Mod_UD_RegenNanobots)}.{nameof(GetDynamicModName)} (static)",
@@ -286,13 +280,17 @@ namespace XRL.World.Parts
             string regenerative = LowerCase ? Grammar.MakeLowerCase(REGENERATIVE) : Grammar.MakeTitleCase(REGENERATIVE);
             string nanobots = LowerCase ? Grammar.MakeLowerCase(NANOBOTS) : Grammar.MakeTitleCase(NANOBOTS);
 
-            bool needsRestored = Item.HasEffect<ShatteredArmor>() || Item.HasEffect<Rusted>() || Item.HasEffect<Broken>();
+            bool needsRestored = Item.HasEffect<ShatteredArmor>()
+                || Item.HasEffect<Rusted>()
+                || Item.HasEffect<Broken>()
+                ;
 
             string output = $"{(regenerative).Color("regenerative")} {(nanobots).Color(needsRestored ? "greygoo" : "nanobots")}";
 
-            Statistic Hitpoints = Item?.GetStat("Hitpoints");
+            var Hitpoints = Item?.GetStat("Hitpoints");
 
-            if (Item  != null && Hitpoints != null)
+            if (Item != null
+                && Hitpoints != null)
             {
                 int remainingHP = Hitpoints.Value;
                 int maxHP = Hitpoints.BaseValue;
@@ -304,7 +302,8 @@ namespace XRL.World.Parts
                 Debug.Entry(4, $"Item: {Item?.DebugName ?? NULL} | {remainingHP}/{maxHP} = {percentHP}; {nameof(breakPoint)}: {breakPoint}",
                     Indent: indent + 2, Toggle: doDebug);
 
-                if (breakPoint < regenerative.Length - 1 || Hitpoints.Penalty != 0)
+                if (breakPoint < regenerative.Length - 1
+                    || Hitpoints.Penalty != 0)
                 {
                     int brightPoint = Math.Max(0, breakPoint - 1);
                     int whitePoint = brightPoint;
@@ -319,14 +318,13 @@ namespace XRL.World.Parts
 
                     string regenBright = brightPoint > 0 ? regenerative[..brightPoint] : "";
                     if (!regenBright.IsNullOrEmpty())
-                    {
                         regenBright = regenBright.Color("regenerating");
-                    }
+
                     string regenWhite = regenerative.Substring(whitePoint, 1);
+
                     if (!regenWhite.IsNullOrEmpty())
-                    {
                         regenWhite = regenWhite.Color("Y");
-                    }
+
                     string regenDull = regenerative[dullPoint..];
 
                     Debug.Entry(4, $"{nameof(regenBright)}", $"{regenBright}",
@@ -423,9 +421,7 @@ namespace XRL.World.Parts
             int output = 0;
 
             if (Hitpoints != null)
-            {
                 output = 10 * CalculateBaseChargeUse() * GetRegenAmount(Max: true);
-            }
 
             Debug.LastIndent = indent;
             return output;
@@ -457,8 +453,11 @@ namespace XRL.World.Parts
                 $"{nameof(MultiplyBy)}: {MultiplyBy})",
                 Indent: indent + 1, Toggle: getDoDebug());
 
-            if (ParentObject != null && Hitpoints != null && GetRegenChargeUse() > 0)
+            if (ParentObject != null
+                && Hitpoints != null
+                && GetRegenChargeUse() > 0)
             {
+                Debug.LastIndent = indent;
                 return (GetRegenChargeUse() * Math.Max(1, MultiplyBy)) < (ParentObject.QueryCharge() - LessAmount);
             }
 
@@ -477,10 +476,10 @@ namespace XRL.World.Parts
 
             bool output = false;
 
-            if (ParentObject != null && Hitpoints != null && GetRestoreChargeUse() > 0)
-            {
+            if (ParentObject != null
+                && Hitpoints != null
+                && GetRestoreChargeUse() > 0)
                 output = (GetRestoreChargeUse() * Math.Max(1, MultiplyBy)) < (ParentObject.QueryCharge() - LessAmount);
-            }
 
             Debug.LastIndent = indent;
             return output;
@@ -535,29 +534,37 @@ namespace XRL.World.Parts
             Debug.Entry(4, $"{nameof(HitpointPercent)}: {HitpointPercent}% ( / 0.25f = {(int)Math.Ceiling(HitpointPercent / 0.25f)})",
                 Indent: indent + 2, Toggle: getDoDebug());
 
-            if (ParentObject != null && HaveChargeToRegen(MultiplyBy: RegenRolls) && IsReady(UseCharge: true, MultipleCharge: RegenRolls) && isDamaged)
-            {
-                CumulativeChargeUse += (ChargeUse * RegenRolls);
+            int regenAttempts = RegenRolls;
+            while (!HaveChargeToRegen(MultiplyBy: regenAttempts)
+                && regenAttempts > 0)
+                regenAttempts--;
 
-                int regenMax = RegenDie.Max();
+            if (ParentObject != null
+                && regenAttempts > 0
+                && IsReady(UseCharge: true, MultipleCharge: regenAttempts)
+                && isDamaged)
+            {
+                CumulativeChargeUse += (ChargeUse * regenAttempts);
+
+                int regenDieMax = RegenDie.Max();
                 int testRoll = 0;
                 int roll = -1;
                 bool byChance = false;
 
-                Debug.Entry(3, $"Rolling with {RegenRolls - 1}x Advantage for whether to regen or not...",
+                Debug.Entry(3, $"Rolling with {regenAttempts - 1}x Advantage for whether to regen or not...",
                     Indent: indent + 2, Toggle: getDoDebug());
 
-                int regenMaxPadding = regenMax.ToString().Length;
+                int regenMaxPadding = regenDieMax.ToString().Length;
                 string rollString = "";
                 
-                for (int i = 0; i < RegenRolls; i++)
+                for (int i = 0; i < regenAttempts; i++)
                 {
                     testRoll = RegenDie.Resolve();
                     rollString = testRoll.ToString().PadLeft(regenMaxPadding, ' ');
-                    Debug.LoopItem(4, $"{i}] {nameof(roll)}: ({rollString}/{regenMax})", Indent: indent + 2, Toggle: getDoDebug());
+                    Debug.LoopItem(4, $"{i}] {nameof(roll)}: ({rollString}/{regenDieMax})", Indent: indent + 2, Toggle: getDoDebug());
                     if (!byChance)
                     {
-                        byChance = testRoll == regenMax;
+                        byChance = testRoll == regenDieMax;
                         if (byChance)
                         {
                             roll = testRoll;
@@ -566,9 +573,8 @@ namespace XRL.World.Parts
                     }
                 }
                 if (roll == -1)
-                {
                     roll = testRoll;
-                }
+
                 rollString = roll.ToString().PadLeft(regenMaxPadding, ' ');
 
                 RegenAmount = GetRegenAmount();
@@ -579,7 +585,7 @@ namespace XRL.World.Parts
                     message = GameText.VariableReplace(message, Subject: ParentObject, Object: Holder);
 
                     Debug.Entry(3,
-                        $"({rollString}/{regenMax})" +
+                        $"({rollString}/{regenDieMax})" +
                         $" {message}",
                         Indent: indent + 2, Toggle: getDoDebug());
 
@@ -611,7 +617,7 @@ namespace XRL.World.Parts
                 else
                 {
                     Debug.Entry(3, 
-                        $"({rollString}/{regenMax})" +
+                        $"({rollString}/{regenDieMax})" +
                         $" {ParentObject?.DebugName ?? NULL}' {GetDynamicModName(LowerCase: true)}" +
                         $" remained innactive!", 
                         Indent: indent + 2, Toggle: getDoDebug());
@@ -979,10 +985,10 @@ namespace XRL.World.Parts
             Debug.Entry(4, $"{nameof(Mod_UD_RegenNanobots)}.{nameof(HandleEvent)}({nameof(GetDisplayNameEvent)})",
                 Indent: indent + 1, Toggle: getDoDebug('x'));
 
-            if (E.Understood() && !E.Object.HasProperName)
-            {
+            if (E.Understood()
+                && !E.Object.HasProperName)
                 E.AddWithClause(GetDynamicModName(LowerCase: true));
-            }
+
             Debug.LastIndent = indent;
             return base.HandleEvent(E);
         }
