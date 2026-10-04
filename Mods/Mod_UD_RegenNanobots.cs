@@ -578,11 +578,15 @@ namespace XRL.World.Parts
                 rollString = roll.ToString().PadLeft(regenMaxPadding, ' ');
 
                 RegenAmount = GetRegenAmount();
-                if (byChance && RegenAmount > 0)
+                if (byChance
+                    && RegenAmount > 0)
                 {
                     string equipped = Equipper != null ? "equipped " : "";
-                    string message = $"=object.T's= {equipped}{ParentObject.BaseDisplayName}'s {GetDynamicModName(LowerCase: true)} =verb:regenerate= {RegenAmount} HP!";
-                    message = GameText.VariableReplace(message, Subject: ParentObject, Object: Holder);
+                    string message = $"=object.T's= {equipped}{ParentObject.BaseDisplayName}'s {GetDynamicModName(LowerCase: true)} =verb:regenerate= {RegenAmount} HP!"
+                        .StartReplace()
+                        .AddObject(ParentObject)
+                        .AddObject(Holder)
+                        .ToString();
 
                     Debug.Entry(3,
                         $"({rollString}/{regenDieMax})" +
@@ -592,8 +596,9 @@ namespace XRL.World.Parts
                     didRegen = ParentObject.Heal(RegenAmount) > 0;
                     if (didRegen)
                     {
-                        ParentObject.UseCharge(GetRegenChargeUse());
-                        CumulativeChargeUse += GetRegenChargeUse();
+                        int chargeUse = GetRegenChargeUse();
+                        ParentObject.UseCharge(chargeUse);
+                        CumulativeChargeUse += chargeUse;
 
                         CumulativeRegen += RegenAmount;
 
@@ -604,13 +609,9 @@ namespace XRL.World.Parts
                         if (!isDamaged)
                         {
                             if (ShouldPopupRegen(Silent) && Holder.IsPlayer())
-                            {
                                 Popup.Show(GameText.VariableReplace(fullyRegenMessage, Subject: ParentObject, Object: Holder));
-                            }
                             else
-                            {
                                 AddPlayerMessage(fullyRegenMessage);
-                            }
                         }
                     }
                 }
